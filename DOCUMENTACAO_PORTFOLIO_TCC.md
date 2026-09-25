@@ -46,7 +46,7 @@ O projeto foi desenvolvido com abordagem prática e iterativa. A solução foi c
 ## Tecnologias utilizadas
 - Python
 - Flask
-- SQLite
+- PostgreSQL via Supabase
 - HTML
 - JavaScript
 - Tailwind CSS

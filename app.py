@@ -1,6 +1,5 @@
 import os
 from flask import Flask, render_template, request, jsonify, session
-import sqlite3
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -16,9 +15,7 @@ except ImportError:
     psycopg = None
     dict_row = None
 
-INTEGRITY_ERRORS = (sqlite3.IntegrityError,)
-if psycopg is not None:
-    INTEGRITY_ERRORS += (psycopg.errors.UniqueViolation,)
+INTEGRITY_ERRORS = (psycopg.errors.UniqueViolation,) if psycopg is not None else ()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'apoio-solidario-dev-key')
@@ -81,23 +78,20 @@ class ConexaoPostgresCompat:
         return self.conexao.__exit__(tipo, valor, traceback)
 
 def conectar_banco():
-    if usando_supabase():
-        if psycopg is None:
-            raise RuntimeError('Instale psycopg[binary] para usar o Supabase.')
-        conexao = psycopg.connect(os.environ['SUPABASE_DB_URL'], row_factory=dict_row)
-        return ConexaoPostgresCompat(conexao)
-
-    conn = sqlite3.connect('app_ajuda.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    if not usando_supabase():
+        raise RuntimeError('SUPABASE_DB_URL não configurada. O banco Supabase é obrigatório.')
+    if psycopg is None:
+        raise RuntimeError('Instale psycopg[binary] para usar o Supabase.')
+    conexao = psycopg.connect(os.environ['SUPABASE_DB_URL'], row_factory=dict_row)
+    return ConexaoPostgresCompat(conexao)
 
 def adicionar_notificacao(id_usuario, tipo, mensagem, id_pedido=None, conn=None):
     if id_usuario is None:
         return None
 
     if conn is None:
-        with conectar_banco() as conn_local:
-            c = conn_local.cursor()
+        with conectar_banco() as conn:
+            c = conn.cursor()
             c.execute(
                 '''
                 INSERT INTO notificacoes (id_usuario, tipo, mensagem, id_pedido)
@@ -105,7 +99,7 @@ def adicionar_notificacao(id_usuario, tipo, mensagem, id_pedido=None, conn=None)
                 ''',
                 (id_usuario, tipo, mensagem, id_pedido)
             )
-            conn_local.commit()
+            conn.commit()
         return None
 
     c = conn.cursor()
@@ -176,116 +170,9 @@ def garantir_estrutura_supabase():
         conn.commit()
 
 def garantir_estrutura_banco():
-    if usando_supabase():
-        garantir_estrutura_supabase()
-        return
-
-    with conectar_banco() as conn:
-        c = conn.cursor()
-
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='usuarios'")
-        if c.fetchone() is None:
-            c.execute('''
-                CREATE TABLE usuarios (
-                    id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nome TEXT NOT NULL,
-                    cpf TEXT,
-                    telefone TEXT NOT NULL UNIQUE,
-                    senha TEXT NOT NULL,
-                    tipo_perfil TEXT NOT NULL
-                )
-            ''')
-        else:
-            colunas_usuarios = [row[1] for row in c.execute('PRAGMA table_info(usuarios)').fetchall()]
-            if 'senha' not in colunas_usuarios:
-                c.execute('ALTER TABLE usuarios ADD COLUMN senha TEXT')
-            if 'tipo_perfil' not in colunas_usuarios:
-                c.execute('ALTER TABLE usuarios ADD COLUMN tipo_perfil TEXT')
-            if 'latitude' not in colunas_usuarios:
-                c.execute('ALTER TABLE usuarios ADD COLUMN latitude REAL')
-            if 'longitude' not in colunas_usuarios:
-                c.execute('ALTER TABLE usuarios ADD COLUMN longitude REAL')
-            if 'cpf' not in colunas_usuarios:
-                c.execute('ALTER TABLE usuarios ADD COLUMN cpf TEXT')
-
-        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS usuarios_cpf_idx ON usuarios(cpf) WHERE cpf IS NOT NULL')
-
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'")
-        if c.fetchone() is None:
-            c.execute('''
-                CREATE TABLE pedidos (
-                    id_pedido INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_solicitante INTEGER,
-                    id_voluntario INTEGER,
-                    categoria TEXT NOT NULL,
-                    descricao_outros TEXT,
-                    latitude REAL,
-                    longitude REAL,
-                    status TEXT DEFAULT 'pendente',
-                    motivo_cancelamento TEXT,
-                    criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-                    aceito_em TEXT,
-                    em_andamento TEXT,
-                    concluido_em TEXT,
-                    FOREIGN KEY (id_solicitante) REFERENCES usuarios(id_usuario),
-                    FOREIGN KEY (id_voluntario) REFERENCES usuarios(id_usuario)
-                )
-            ''')
-        else:
-            colunas_pedidos = [row[1] for row in c.execute('PRAGMA table_info(pedidos)').fetchall()]
-            if 'id_solicitante' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN id_solicitante INTEGER')
-            if 'id_voluntario' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN id_voluntario INTEGER')
-            if 'latitude' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN latitude REAL')
-            if 'longitude' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN longitude REAL')
-            if 'motivo_cancelamento' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN motivo_cancelamento TEXT')
-            if 'criado_em' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN criado_em TEXT')
-            if 'aceito_em' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN aceito_em TEXT')
-            if 'em_andamento' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN em_andamento TEXT')
-            if 'concluido_em' not in colunas_pedidos:
-                c.execute('ALTER TABLE pedidos ADD COLUMN concluido_em TEXT')
-
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='mensagens'")
-        if c.fetchone() is None:
-            c.execute('''
-                CREATE TABLE mensagens (
-                    id_mensagem INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_pedido INTEGER NOT NULL,
-                    id_remetente INTEGER NOT NULL,
-                    texto TEXT NOT NULL,
-                    criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (id_pedido) REFERENCES pedidos(id_pedido),
-                    FOREIGN KEY (id_remetente) REFERENCES usuarios(id_usuario)
-                )
-            ''')
-
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='notificacoes'")
-        if c.fetchone() is None:
-            c.execute('''
-                CREATE TABLE notificacoes (
-                    id_notificacao INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_usuario INTEGER NOT NULL,
-                    tipo TEXT NOT NULL,
-                    mensagem TEXT NOT NULL,
-                    id_pedido INTEGER,
-                    lida INTEGER DEFAULT 0,
-                    criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-                )
-            ''')
-        else:
-            colunas_notificacoes = [row[1] for row in c.execute('PRAGMA table_info(notificacoes)').fetchall()]
-            if 'lida' not in colunas_notificacoes:
-                c.execute('ALTER TABLE notificacoes ADD COLUMN lida INTEGER DEFAULT 0')
-
-        conn.commit()
+    if not usando_supabase():
+        raise RuntimeError('SUPABASE_DB_URL não configurada. O banco Supabase é obrigatório.')
+    garantir_estrutura_supabase()
 
 # Cria as tabelas ao iniciar e corrige colunas faltantes em bancos já existentes
 garantir_estrutura_banco()

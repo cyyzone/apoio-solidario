@@ -49,8 +49,8 @@ Responsabilidades:
 - atualização de status da demanda
 
 ### Banco de dados
-- SQLite para ambiente local
-- estrutura compatível com esquema SQL e integração com Supabase
+- PostgreSQL hospedado no Supabase
+- Render usa `SUPABASE_DB_URL` para acessar o banco
 
 ---
 
@@ -206,7 +206,7 @@ Foram adicionados ajustes importantes para melhorar a experiência:
 ---
 
 ## Ajustes importantes já implementados
-- correção de compatibilidade do banco SQLite
+- integração do banco PostgreSQL com Supabase e Render
 - criação de campos de histórico do pedido
 - geração de notificações por evento
 - registro de motivo de cancelamento

@@ -1,4 +1,13 @@
+import os
 import uuid
+
+import pytest
+
+from dotenv import load_dotenv
+
+load_dotenv()
+if not os.environ.get('SUPABASE_DB_URL'):
+    pytest.skip('SUPABASE_DB_URL não configurada.', allow_module_level=True)
 
 import app
 

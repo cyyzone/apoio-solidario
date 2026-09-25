@@ -89,7 +89,7 @@ Isso ajuda a mostrar o andamento da ajuda de forma clara.
 - app.py: contém toda a lógica do backend, rotas da API, regras de negócio e acesso ao banco.
 - templates/index.html: interface do frontend, com telas de login, cadastro, pedidos, notificações e chat.
 - requirements.txt: lista as dependências do projeto.
-- supabase_schema.sql: estrutura do schema do banco, com suporte a banco SQL e integração com Supabase.
+- supabase_schema.sql: estrutura do schema PostgreSQL usado no Supabase.
 
 ---
 
@@ -97,7 +97,7 @@ Isso ajuda a mostrar o andamento da ajuda de forma clara.
 
 - Python
 - Flask
-- SQLite
+- PostgreSQL via Supabase
 - HTML
 - JavaScript
 - Tailwind CSS
@@ -142,7 +142,7 @@ Isso ajuda a mostrar o andamento da ajuda de forma clara.
 
 5. Abra `http://127.0.0.1:5000` no navegador.
 
-Sem `SUPABASE_DB_URL`, a aplicação usa SQLite e cria `app_ajuda.db` automaticamente. Para usar Supabase, preencha essa variável no `.env` e execute [`supabase_schema.sql`](supabase_schema.sql). Nunca publique o arquivo `.env` ou credenciais do banco.
+O Supabase é obrigatório. Configure `SUPABASE_DB_URL` no `.env` local ou nas variáveis de ambiente do Render e execute [`supabase_schema.sql`](supabase_schema.sql) no banco antes do primeiro deploy. Nunca publique o arquivo `.env` ou credenciais do banco.
 
 ## Testes
 
@@ -158,7 +158,7 @@ Os testes cobrem cancelamento, notificações e mensagens usando o cliente de te
 
 Durante o desenvolvimento, o projeto recebeu melhorias em várias áreas:
 
-- correção do banco de dados para funcionar corretamente com SQLite
+- integração do banco PostgreSQL com Supabase e Render
 - ajuste de regras do fluxo de ajuda
 - criação de histórico de pedidos
 - adição de notificações visíveis na interface
@@ -198,4 +198,4 @@ git remote add origin https://github.com/SEU_USUARIO/apoio-solidario.git
 git push -u origin main
 ```
 
-Antes do `git add`, confirme que `.env`, `.venv` e `app_ajuda.db` não aparecem no `git status`.
+Antes do `git add`, confirme que `.env` e `.venv` não aparecem no `git status`.
