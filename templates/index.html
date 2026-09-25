@@ -67,10 +67,11 @@
             <input type="password" id="login-senha" placeholder="Sua Senha"
                 class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none mb-6">
 
-            <button onclick="fazerLogin()"
+            <button id="btn-login" onclick="fazerLogin()"
                 class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-6 px-6 rounded-2xl shadow-xl text-3xl">
                 Entrar
             </button>
+            <div id="status-login" class="hidden rounded-2xl border-2 p-4 text-center text-lg font-bold" role="status" aria-live="polite"></div>
 
             <button onclick="navigateTo('screen-cadastro')"
                 class="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-4 px-6 rounded-2xl text-2xl mt-2">
@@ -124,6 +125,11 @@
         <div id="screen-home" class="hidden-screen flex flex-col gap-6 sm:gap-10 w-full">
             <h2 class="text-3xl sm:text-4xl font-semibold text-center mb-4">Como podemos ajudar hoje?</h2>
 
+            <button id="btn-perfil-home" onclick="navigateTo('screen-perfil')"
+                class="w-full bg-white border-4 border-orange-200 hover:border-orange-400 text-orange-900 font-bold py-6 px-8 rounded-2xl shadow-md text-2xl">
+                Meu Perfil 👤
+            </button>
+
             <button id="btn-help-home" onclick="navigateTo('screen-help')"
                 class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-12 px-8 rounded-3xl shadow-xl transform transition hover:scale-105 focus:ring-8 focus:ring-orange-400 flex flex-col items-center justify-center gap-4">
                 <span class="text-5xl sm:text-6xl">🙋‍♂️</span>
@@ -134,11 +140,6 @@
                 class="w-full bg-orange-800 hover:bg-orange-900 text-white font-bold py-12 px-8 rounded-3xl shadow-xl transform transition hover:scale-105 focus:ring-8 focus:ring-orange-500 flex flex-col items-center justify-center gap-4">
                 <span class="text-5xl sm:text-6xl">🤝</span>
                 <span class="text-4xl sm:text-5xl">Sou Voluntário</span>
-            </button>
-
-            <button id="btn-perfil-home" onclick="navigateTo('screen-perfil')"
-                class="w-full bg-white border-4 border-orange-200 hover:border-orange-400 text-orange-900 font-bold py-6 px-8 rounded-2xl shadow-md text-2xl">
-                Meu Perfil 👤
             </button>
 
             <button id="btn-chat-home" onclick="abrirConversasHome()"
@@ -1248,30 +1249,54 @@
         }
 
         async function fazerLogin() {
+            const botaoLogin = document.getElementById('btn-login');
+            const statusLogin = document.getElementById('status-login');
             const cpf = document.getElementById('login-cpf').value;
             const senha = document.getElementById('login-senha').value;
 
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cpf, senha })
-            });
+            if (!cpf || !senha) {
+                alert('Informe seu CPF e sua senha.');
+                return;
+            }
 
-            if (response.ok) {
-                const usuario = await response.json();
-                localStorage.setItem('usuario_id', usuario.id_usuario);
-                localStorage.setItem('usuario_nome', usuario.nome);
-                localStorage.setItem('usuario_perfil', usuario.tipo_perfil);
-                if (usuario.latitude && usuario.longitude) {
-                    salvarLocalizacaoUsuario(usuario.latitude, usuario.longitude);
+            botaoLogin.disabled = true;
+            botaoLogin.textContent = 'Entrando...';
+            statusLogin.className = 'rounded-2xl border-2 border-blue-200 bg-blue-50 p-4 text-center text-lg font-bold text-blue-800';
+            statusLogin.textContent = 'Entrando e carregando seus dados...';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf, senha })
+                });
+
+                const resultado = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(resultado.erro || 'CPF ou senha incorretos.');
                 }
 
+                localStorage.setItem('usuario_id', resultado.id_usuario);
+                localStorage.setItem('usuario_nome', resultado.nome);
+                localStorage.setItem('usuario_perfil', resultado.tipo_perfil);
+                if (resultado.latitude && resultado.longitude) {
+                    salvarLocalizacaoUsuario(resultado.latitude, resultado.longitude);
+                }
+
+                statusLogin.className = 'rounded-2xl border-2 border-green-200 bg-green-50 p-4 text-center text-lg font-bold text-green-800';
+                statusLogin.textContent = 'Login realizado com sucesso!';
                 await carregarNotificacoes();
                 iniciarNotificacoesAutomaticas();
                 document.getElementById('screen-login').classList.add('hidden-screen');
                 navigateTo('screen-home');
-            } else {
-                alert("CPF ou senha incorretos.");
+            } catch (erro) {
+                statusLogin.className = 'rounded-2xl border-2 border-red-200 bg-red-50 p-4 text-center text-lg font-bold text-red-800';
+                statusLogin.textContent = erro.message || 'Não foi possível realizar o login.';
+                alert(statusLogin.textContent);
+            } finally {
+                botaoLogin.disabled = false;
+                botaoLogin.textContent = 'Entrar';
             }
         }
 
