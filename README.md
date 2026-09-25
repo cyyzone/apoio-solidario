@@ -130,7 +130,7 @@ Isso ajuda a mostrar o andamento da ajuda de forma clara.
 3. Instale as dependências:
 
   ```powershell
-  pip install -r requirements-dev.txt
+  pip install -r requirements.txt
   Copy-Item .env.example .env
   ```
 
