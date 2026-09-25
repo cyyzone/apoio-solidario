@@ -107,9 +107,11 @@
                 </div>
 
                 <button onclick="fazerCadastro()"
+                    id="btn-cadastro"
                     class="w-full mt-6 bg-orange-600 hover:bg-orange-700 text-white font-bold py-6 px-6 rounded-2xl shadow-xl text-3xl">
                     Cadastrar
                 </button>
+                <div id="status-cadastro" class="hidden mt-4 rounded-2xl border-2 p-4 text-center text-lg font-bold" role="status" aria-live="polite"></div>
 
                 <button onclick="navigateTo('screen-login')"
                     class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-4 px-6 rounded-2xl text-2xl">
@@ -1183,6 +1185,8 @@
         }
 
         async function fazerCadastro() {
+            const botaoCadastro = document.getElementById('btn-cadastro');
+            const statusCadastro = document.getElementById('status-cadastro');
             const nome = document.getElementById('cadastro-nome').value.trim();
             const cpf = document.getElementById('cadastro-cpf').value.trim();
             const telefone = document.getElementById('cadastro-telefone').value.trim();
@@ -1195,35 +1199,51 @@
                 return;
             }
 
-            const response = await fetch('/api/cadastro', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nome,
-                    cpf,
-                    telefone,
-                    senha,
-                    tipo_perfil: tipoPerfil,
-                    latitude: localizacaoAtual ? localizacaoAtual.latitude : null,
-                    longitude: localizacaoAtual ? localizacaoAtual.longitude : null
-                })
-            });
+            botaoCadastro.disabled = true;
+            botaoCadastro.textContent = 'Salvando cadastro...';
+            statusCadastro.className = 'mt-4 rounded-2xl border-2 border-blue-200 bg-blue-50 p-4 text-center text-lg font-bold text-blue-800';
+            statusCadastro.textContent = 'Salvando cadastro...';
 
-            const resultado = await response.json();
+            try {
+                const response = await fetch('/api/cadastro', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nome,
+                        cpf,
+                        telefone,
+                        senha,
+                        tipo_perfil: tipoPerfil,
+                        latitude: localizacaoAtual ? localizacaoAtual.latitude : null,
+                        longitude: localizacaoAtual ? localizacaoAtual.longitude : null
+                    })
+                });
 
-            if (response.ok) {
-                document.getElementById('cadastro-nome').value = '';
-                document.getElementById('cadastro-cpf').value = '';
-                document.getElementById('cadastro-telefone').value = '';
-                document.getElementById('cadastro-senha').value = '';
-                document.getElementById('cadastro-tipo').value = '';
-                localStorage.removeItem('usuario_latitude');
-                localStorage.removeItem('usuario_longitude');
-                document.getElementById('status-localizacao').classList.add('hidden');
-                alert('Cadastro realizado com sucesso!');
-                navigateTo('screen-login');
-            } else {
-                alert(resultado.erro || 'Erro ao cadastrar.');
+                const resultado = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('cadastro-nome').value = '';
+                    document.getElementById('cadastro-cpf').value = '';
+                    document.getElementById('cadastro-telefone').value = '';
+                    document.getElementById('cadastro-senha').value = '';
+                    document.getElementById('cadastro-tipo').value = '';
+                    localStorage.removeItem('usuario_latitude');
+                    localStorage.removeItem('usuario_longitude');
+                    document.getElementById('status-localizacao').classList.add('hidden');
+                    statusCadastro.className = 'mt-4 rounded-2xl border-2 border-green-200 bg-green-50 p-4 text-center text-lg font-bold text-green-800';
+                    statusCadastro.textContent = 'Cadastro realizado com sucesso!';
+                    alert('Cadastro realizado com sucesso!');
+                    navigateTo('screen-login');
+                } else {
+                    throw new Error(resultado.erro || 'Erro ao cadastrar.');
+                }
+            } catch (erro) {
+                statusCadastro.className = 'mt-4 rounded-2xl border-2 border-red-200 bg-red-50 p-4 text-center text-lg font-bold text-red-800';
+                statusCadastro.textContent = erro.message || 'Não foi possível salvar o cadastro.';
+                alert(statusCadastro.textContent);
+            } finally {
+                botaoCadastro.disabled = false;
+                botaoCadastro.textContent = 'Cadastrar';
             }
         }
 
