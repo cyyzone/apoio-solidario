@@ -119,7 +119,7 @@
         </div>
 
         <!-- TELA INICIAL -->
-        <div id="screen-home" class="flex flex-col gap-6 sm:gap-10 w-full">
+        <div id="screen-home" class="hidden-screen flex flex-col gap-6 sm:gap-10 w-full">
             <h2 class="text-3xl sm:text-4xl font-semibold text-center mb-4">Como podemos ajudar hoje?</h2>
 
             <button id="btn-help-home" onclick="navigateTo('screen-help')"
@@ -433,6 +433,12 @@
 
         function navigateTo(targetScreenId) {
             const perfil = localStorage.getItem('usuario_perfil');
+            const usuarioAutenticado = Boolean(localStorage.getItem('usuario_id'));
+            const telasPublicas = new Set(['screen-login', 'screen-cadastro']);
+
+            if (!usuarioAutenticado && !telasPublicas.has(targetScreenId)) {
+                targetScreenId = 'screen-login';
+            }
 
             if (targetScreenId !== 'screen-chat' && intervaloChat) {
                 clearInterval(intervaloChat);
