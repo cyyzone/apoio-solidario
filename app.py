@@ -220,6 +220,18 @@ def cadastrar():
         with conectar_banco() as conn:
             c = conn.cursor()
             c.execute('''
+                SELECT cpf, telefone
+                FROM usuarios
+                WHERE cpf = ? OR telefone = ?
+                LIMIT 1
+            ''', (cpf, telefone))
+            usuario_existente = c.fetchone()
+            if usuario_existente:
+                if usuario_existente['cpf'] == cpf:
+                    return jsonify({"erro": "Este CPF já está cadastrado."}), 400
+                return jsonify({"erro": "Este telefone já está cadastrado."}), 400
+
+            c.execute('''
                 INSERT INTO usuarios (nome, cpf, telefone, senha, tipo_perfil, latitude, longitude)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -234,7 +246,7 @@ def cadastrar():
             conn.commit()
         return jsonify({"mensagem": "Cadastro realizado!"}), 201
     except INTEGRITY_ERRORS:
-        return jsonify({"erro": "CPF ou telefone já cadastrado."}), 400
+        return jsonify({"erro": "CPF ou telefone já cadastrado. Verifique os dados informados."}), 400
 
 @app.route('/api/login', methods=['POST'])
 def login():
