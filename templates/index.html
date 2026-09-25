@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apoio Solidário</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8FAFC;
+            color: #0F172A;
+        }
+        .hidden-screen {
+            display: none !important;
+        }
+        #volunteer-map {
+            height: 20rem;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
+
+    <header class="w-full max-w-3xl flex justify-between items-center mb-8 border-b-4 border-gray-200 pb-4">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-orange-900">Apoio Solidário</h1>
+        <div class="flex items-center gap-3">
+            <button id="btn-notificacoes" class="hidden-screen relative bg-orange-100 hover:bg-orange-200 text-orange-900 font-bold py-3 px-4 rounded-xl text-xl transition-colors shadow-sm focus:ring-4 focus:ring-orange-300">
+                🔔
+                <span id="notificacao-count" class="absolute -top-2 -right-2 min-w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center px-1">0</span>
+            </button>
+            <span id="usuario-logado" class="hidden-screen text-lg font-bold text-orange-900 bg-orange-100 px-3 py-2 rounded-xl"></span>
+            <button id="btn-back"
+                class="hidden-screen bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-3 px-6 rounded-xl text-xl transition-colors shadow-sm focus:ring-4 focus:ring-gray-400">
+                &larr; Voltar
+            </button>
+            <button id="btn-logout"
+                class="hidden-screen bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl text-xl transition-colors shadow-sm focus:ring-4 focus:ring-red-300">
+                Sair
+            </button>
+        </div>
+    </header>
+
+    <div id="notificacoes-panel" class="hidden-screen w-full max-w-3xl mb-6 bg-white border-4 border-orange-200 rounded-3xl shadow-xl p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-2xl font-bold text-orange-900">Notificações</h3>
+            <div class="flex items-center gap-3">
+                <button id="btn-limpar-notificacoes" class="text-sm font-semibold text-red-600 hover:text-red-800">Limpar</button>
+                <button id="btn-fechar-notificacoes" class="text-sm font-semibold text-gray-600">Fechar</button>
+            </div>
+        </div>
+        <div id="lista-notificacoes" class="space-y-3"></div>
+    </div>
+
+    <main class="w-full max-w-3xl flex-1 flex flex-col justify-center">
+
+        <!-- TELA DE LOGIN -->
+        <div id="screen-login" class="flex flex-col w-full gap-4 mt-10">
+            <h2 class="text-3xl font-semibold mb-6 text-center">Acesse sua conta</h2>
+
+            <input type="text" id="login-telefone" placeholder="Seu Telefone"
+                class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none mb-4">
+            <input type="password" id="login-senha" placeholder="Sua Senha"
+                class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none mb-6">
+
+            <button onclick="fazerLogin()"
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-6 px-6 rounded-2xl shadow-xl text-3xl">
+                Entrar
+            </button>
+
+            <button onclick="navigateTo('screen-cadastro')"
+                class="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-4 px-6 rounded-2xl text-2xl mt-2">
+                Criar conta
+            </button>
+        </div>
+
+        <!-- TELA DE CADASTRO -->
+        <div id="screen-cadastro" class="hidden-screen w-full">
+            <div class="mx-auto w-full max-w-xl bg-white border-4 border-orange-100 rounded-3xl shadow-xl p-6 sm:p-8">
+                <h2 class="text-3xl font-semibold mb-6 text-center text-orange-900">Crie sua conta</h2>
+
+                <div class="flex flex-col gap-4">
+                    <input type="text" id="cadastro-nome" placeholder="Seu Nome"
+                        class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none">
+                    <input type="text" id="cadastro-telefone" placeholder="Seu Telefone"
+                        class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none">
+                    <input type="password" id="cadastro-senha" placeholder="Sua Senha"
+                        class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none">
+                    <select id="cadastro-tipo"
+                        class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none">
+                        <option value="">Selecione o perfil</option>
+                        <option value="necessitado">Preciso de ajuda</option>
+                        <option value="voluntario">Sou voluntário</option>
+                    </select>
+
+                    <button onclick="obterLocalizacaoUsuario()"
+                        class="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-4 px-6 rounded-2xl text-2xl mt-2">
+                        Usar minha localização
+                    </button>
+                    <p id="status-localizacao" class="text-sm text-gray-600 hidden">Localização ainda não capturada.</p>
+                </div>
+
+                <button onclick="fazerCadastro()"
+                    class="w-full mt-6 bg-orange-600 hover:bg-orange-700 text-white font-bold py-6 px-6 rounded-2xl shadow-xl text-3xl">
+                    Cadastrar
+                </button>
+
+                <button onclick="navigateTo('screen-login')"
+                    class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-4 px-6 rounded-2xl text-2xl">
+                    Já tenho conta
+                </button>
+            </div>
+        </div>
+
+        <!-- TELA INICIAL -->
+        <div id="screen-home" class="flex flex-col gap-6 sm:gap-10 w-full">
+            <h2 class="text-3xl sm:text-4xl font-semibold text-center mb-4">Como podemos ajudar hoje?</h2>
+
+            <button id="btn-help-home" onclick="navigateTo('screen-help')"
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-12 px-8 rounded-3xl shadow-xl transform transition hover:scale-105 focus:ring-8 focus:ring-orange-400 flex flex-col items-center justify-center gap-4">
+                <span class="text-5xl sm:text-6xl">🙋‍♂️</span>
+                <span class="text-4xl sm:text-5xl">Preciso de Ajuda</span>
+            </button>
+
+            <button id="btn-volunteer-home" onclick="navigateTo('screen-volunteer')"
+                class="w-full bg-orange-800 hover:bg-orange-900 text-white font-bold py-12 px-8 rounded-3xl shadow-xl transform transition hover:scale-105 focus:ring-8 focus:ring-orange-500 flex flex-col items-center justify-center gap-4">
+                <span class="text-5xl sm:text-6xl">🤝</span>
+                <span class="text-4xl sm:text-5xl">Sou Voluntário</span>
+            </button>
+
+            <button id="btn-perfil-home" onclick="navigateTo('screen-perfil')"
+                class="w-full bg-white border-4 border-orange-200 hover:border-orange-400 text-orange-900 font-bold py-6 px-8 rounded-2xl shadow-md text-2xl">
+                Meu Perfil 👤
+            </button>
+
+            <button id="btn-chat-home" onclick="abrirConversasHome()"
+                class="hidden-screen w-full bg-green-600 hover:bg-green-700 text-white font-bold py-8 px-8 rounded-3xl shadow-xl text-3xl sm:text-4xl flex flex-col items-center justify-center gap-2">
+                <span class="text-5xl">💬</span>
+                <span>Conversas</span>
+                <span class="text-xl font-semibold">Fale com a pessoa do seu pedido</span>
+            </button>
+        </div>
+
+        <!-- TELA DE PERFIL -->
+        <div id="screen-perfil" class="hidden-screen w-full">
+            <div id="perfil-box" class="mx-auto w-full max-w-xl bg-gradient-to-br from-orange-50 via-white to-orange-100 border-4 border-orange-200 rounded-3xl shadow-xl p-6 sm:p-8"></div>
+        </div>
+
+        <!-- TELA DE CHAT -->
+        <div id="screen-chat" class="hidden-screen w-full">
+            <div class="bg-white border-4 border-orange-200 rounded-3xl shadow-xl p-4 sm:p-6">
+                <h2 id="chat-titulo" class="text-2xl sm:text-3xl font-bold text-orange-900 mb-4">Conversa</h2>
+                <div id="chat-mensagens" class="h-80 overflow-y-auto bg-gray-50 border-2 border-gray-200 rounded-2xl p-4 space-y-3">
+                    <p class="text-gray-500">Carregando conversa...</p>
+                </div>
+                <form id="chat-form" class="flex gap-2 mt-4">
+                    <input id="chat-input" type="text" maxlength="500" placeholder="Digite uma mensagem..." autocomplete="off"
+                        class="min-w-0 flex-1 border-4 border-gray-300 rounded-2xl p-3 text-lg focus:border-orange-600 focus:outline-none">
+                    <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 rounded-2xl">Enviar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TELA: PRECISO DE AJUDA -->
+        <div id="screen-help" class="hidden-screen flex flex-col w-full">
+            <h2 class="text-3xl sm:text-4xl font-semibold mb-8 text-center">Do que você precisa?</h2>
+
+            <p class="text-2xl mb-4 font-medium text-gray-700">Toque em uma ou mais opções:</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-10">
+                <button
+                    class="help-option bg-white border-4 border-gray-300 text-gray-800 text-2xl sm:text-3xl font-bold py-8 px-4 rounded-2xl shadow-md transition-colors focus:outline-none"
+                    onclick="toggleOption(this)">
+                    🛒 Ir ao mercado
+                </button>
+                <button
+                    class="help-option bg-white border-4 border-gray-300 text-gray-800 text-2xl sm:text-3xl font-bold py-8 px-4 rounded-2xl shadow-md transition-colors focus:outline-none"
+                    onclick="toggleOption(this)">
+                    🏥 Companhia p/ consulta
+                </button>
+                <button
+                    class="help-option bg-white border-4 border-gray-300 text-gray-800 text-2xl sm:text-3xl font-bold py-8 px-4 rounded-2xl shadow-md transition-colors focus:outline-none"
+                    onclick="toggleOption(this)">
+                    🌳 Passear
+                </button>
+                <button id="btn-other"
+                    class="help-option bg-white border-4 border-gray-300 text-gray-800 text-2xl sm:text-3xl font-bold py-8 px-4 rounded-2xl shadow-md transition-colors focus:outline-none"
+                    onclick="toggleOption(this, true)">
+                    ➕ Outros (Descreva)
+                </button>
+            </div>
+
+            <div id="other-text-container" class="hidden flex flex-col mb-10 w-full transition-all">
+                <label for="other-request-text" class="text-2xl sm:text-3xl font-bold mb-4 text-gray-800">Por favor, digite o que precisa:</label>
+                <textarea id="other-request-text" rows="3"
+                    class="w-full text-2xl sm:text-3xl p-6 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none resize-none shadow-inner bg-white"
+                    placeholder="Exemplo: Preciso de ajuda para trocar uma lâmpada."></textarea>
+            </div>
+
+            <button onclick="confirmHelp()"
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-8 px-6 rounded-2xl shadow-xl text-3xl sm:text-4xl focus:ring-8 focus:ring-orange-400">
+                Confirmar Pedido ✔️
+            </button>
+
+            <!-- Mensagem de Sucesso -->
+            <div id="success-message"
+                class="hidden mt-8 p-6 bg-orange-100 border-4 border-orange-500 rounded-2xl text-center">
+                <h3 class="text-3xl font-bold text-orange-800 mb-2">Pedido Enviado! 🎉</h3>
+                <p class="text-2xl text-orange-900">Logo um voluntário entrará em contato.</p>
+            </div>
+        </div>
+
+        <!-- TELA: SOU VOLUNTÁRIO -->
+        <div id="screen-volunteer" class="hidden-screen flex flex-col w-full">
+            <h2 class="text-3xl sm:text-4xl font-semibold mb-8 text-center text-orange-900">Pedidos Próximos a Você</h2>
+
+            <div class="mb-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label for="raio-pedidos" class="block text-xl font-semibold text-gray-800 mb-2">Raio máximo de busca</label>
+                    <select id="raio-pedidos" class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none">
+                        <option value="5">5 km</option>
+                        <option value="10" selected>10 km</option>
+                        <option value="20">20 km</option>
+                        <option value="50">50 km</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filtro-categoria" class="block text-xl font-semibold text-gray-800 mb-2">Filtrar categoria</label>
+                    <select id="filtro-categoria" class="w-full text-2xl p-4 border-4 border-gray-300 rounded-2xl focus:border-orange-600 focus:outline-none">
+                        <option value="todas">Todas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-6 overflow-hidden rounded-3xl border-4 border-orange-200 shadow-lg">
+                <div id="volunteer-map" class="w-full"></div>
+            </div>
+
+            <div class="mb-6 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm">
+                <h3 class="text-lg font-bold text-gray-800 mb-3">Legenda do mapa</h3>
+                <div class="flex flex-col gap-3 sm:flex-row sm:gap-6">
+                    <div class="flex items-center gap-2 text-gray-700">
+                        <span class="h-4 w-4 rounded-full border-2 border-red-700 bg-red-600"></span>
+                        <span>Voluntário</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-gray-700">
+                        <span class="h-4 w-4 rounded-full border-2 border-orange-700 bg-orange-500"></span>
+                        <span>Precisa de ajuda</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6" id="volunteer-list">
+                <!-- A lista será preenchida pelo JavaScript -->
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const screens = ['screen-login', 'screen-home', 'screen-help', 'screen-volunteer', 'screen-cadastro', 'screen-perfil', 'screen-chat'];
+        const btnBack = document.getElementById('btn-back');
+        const btnLogout = document.getElementById('btn-logout');
+        const btnNotificacoes = document.getElementById('btn-notificacoes');
+        const btnFecharNotificacoes = document.getElementById('btn-fechar-notificacoes');
+        const btnLimparNotificacoes = document.getElementById('btn-limpar-notificacoes');
+        const notificacoesPanel = document.getElementById('notificacoes-panel');
+        const listaNotificacoes = document.getElementById('lista-notificacoes');
+        const usuarioLogado = document.getElementById('usuario-logado');
+        let notificacoesIntervalo = null;
+
+        function obterLocalizacaoAtualLocal() {
+            const lat = localStorage.getItem('usuario_latitude');
+            const lng = localStorage.getItem('usuario_longitude');
+            if (!lat || !lng) return null;
+            return { latitude: Number(lat), longitude: Number(lng) };
+        }
+
+        function salvarLocalizacaoUsuario(lat, lng) {
+            localStorage.setItem('usuario_latitude', String(lat));
+            localStorage.setItem('usuario_longitude', String(lng));
+        }
+
+        function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+            const toRad = (valor) => (valor * Math.PI) / 180;
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function atualizarPerfilTela() {
+            const nome = localStorage.getItem('usuario_nome') || 'Usuário';
+            const tipo = localStorage.getItem('usuario_perfil') || 'usuário';
+            const perfilBox = document.getElementById('perfil-box');
+            if (!perfilBox) return;
+
+            const ehVoluntario = tipo === 'voluntario';
+            const textoTipo = ehVoluntario ? 'Voluntário' : tipo === 'necessitado' ? 'Precisa de ajuda' : 'Usuário';
+
+            perfilBox.innerHTML = `
+                <div class="flex items-center justify-center mb-6">
+                    <div class="w-20 h-20 rounded-full bg-orange-600 text-white text-4xl flex items-center justify-center font-bold shadow-lg">
+                        ${ehVoluntario ? '🤝' : '👤'}
+                    </div>
+                </div>
+
+                <h2 class="text-3xl sm:text-4xl font-bold text-center text-orange-900 mb-2">Perfil</h2>
+                <p class="text-3xl sm:text-4xl font-extrabold text-center text-gray-900 mb-4">${nome}</p>
+                <p class="text-xl text-center text-orange-700 font-semibold mb-6">Perfil: ${textoTipo}</p>
+
+                <div class="flex flex-col gap-4">
+                    ${ehVoluntario ? `
+                        <div class="bg-white border-2 border-orange-200 rounded-2xl p-4 text-center">
+                            <p class="text-xl font-bold text-orange-900 mb-2">Você está ajudando</p>
+                            <p class="text-lg text-gray-700">Acompanhe os pedidos disponíveis e responda às solicitações.</p>
+                        </div>
+                        <button onclick="carregarConversas()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-5 px-6 rounded-2xl text-2xl shadow-lg">
+                            Minhas conversas
+                        </button>
+                    ` : `
+                        <button onclick="carregarMinhasSolicitacoes()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-5 px-6 rounded-2xl text-2xl shadow-lg">
+                            Minhas solicitações
+                        </button>
+                    `}
+
+                    <button onclick="mostrarFormularioPerfil()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-5 px-6 rounded-2xl text-2xl shadow-lg">
+                        Editar perfil
+                    </button>
+
+                    <div id="form-perfil" class="hidden bg-white border-2 border-orange-200 rounded-2xl p-4">
+                        <label class="block text-lg font-bold text-gray-800 mb-2">Nome</label>
+                        <input id="perfil-nome-input" value="${nome}" class="w-full border-4 border-gray-300 rounded-2xl p-4 text-xl mb-4 focus:border-orange-600 focus:outline-none">
+                        <label class="block text-lg font-bold text-gray-800 mb-2">Nova senha</label>
+                        <input id="perfil-senha-input" type="password" placeholder="Digite uma nova senha" class="w-full border-4 border-gray-300 rounded-2xl p-4 text-xl mb-4 focus:border-orange-600 focus:outline-none">
+                        <button onclick="salvarPerfilUsuario()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-2xl text-xl">
+                            Salvar alterações
+                        </button>
+                    </div>
+
+                    <div id="lista-minhas-solicitacoes" class="hidden bg-white border-2 border-orange-200 rounded-2xl p-4"></div>
+
+                    <button onclick="navigateTo('screen-home')" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-5 px-6 rounded-2xl text-2xl shadow-lg">
+                        Voltar para início
+                    </button>
+                    <button id="btn-perfil-sair" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-5 px-6 rounded-2xl text-2xl shadow-lg">
+                        Sair da conta
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('btn-perfil-sair')?.addEventListener('click', sairDoSistema);
+        }
+
+        function mostrarNomeUsuario() {
+            const nome = localStorage.getItem('usuario_nome');
+            if (!nome) {
+                usuarioLogado.classList.add('hidden-screen');
+                return;
+            }
+
+            usuarioLogado.textContent = `Olá, ${nome}`;
+            usuarioLogado.classList.remove('hidden-screen');
+        }
+
+        async function sairDoSistema() {
+            const confirmarSaida = confirm('Deseja sair da conta atual?');
+            if (!confirmarSaida) {
+                return;
+            }
+
+            if (notificacoesIntervalo) {
+                clearInterval(notificacoesIntervalo);
+                notificacoesIntervalo = null;
+            }
+
+            await fetch('/api/logout', { method: 'POST' });
+
+            localStorage.removeItem('usuario_id');
+            localStorage.removeItem('usuario_nome');
+            localStorage.removeItem('usuario_perfil');
+
+            btnLogout.classList.add('hidden-screen');
+            btnBack.classList.add('hidden-screen');
+            btnNotificacoes?.classList.add('hidden-screen');
+            usuarioLogado.classList.add('hidden-screen');
+            notificacoesPanel?.classList.add('hidden-screen');
+            document.getElementById('screen-login').classList.remove('hidden-screen');
+            navigateTo('screen-login');
+        }
+
+        function aplicarPerfilUsuario() {
+            const perfil = localStorage.getItem('usuario_perfil');
+            const btnAjuda = document.getElementById('btn-help-home');
+            const btnVoluntario = document.getElementById('btn-volunteer-home');
+            const btnChat = document.getElementById('btn-chat-home');
+
+            if (!btnAjuda || !btnVoluntario || !btnChat) return;
+
+            btnChat.classList.toggle('hidden-screen', !localStorage.getItem('usuario_id'));
+
+            if (perfil === 'necessitado') {
+                btnAjuda.classList.remove('hidden-screen');
+                btnVoluntario.classList.add('hidden-screen');
+            } else if (perfil === 'voluntario') {
+                btnAjuda.classList.add('hidden-screen');
+                btnVoluntario.classList.remove('hidden-screen');
+            } else {
+                btnAjuda.classList.remove('hidden-screen');
+                btnVoluntario.classList.remove('hidden-screen');
+            }
+        }
+
+        function abrirConversasHome() {
+            navigateTo('screen-perfil');
+            if (localStorage.getItem('usuario_perfil') === 'voluntario') {
+                carregarConversas();
+            } else {
+                carregarMinhasSolicitacoes();
+            }
+        }
+
+        function navigateTo(targetScreenId) {
+            const perfil = localStorage.getItem('usuario_perfil');
+
+            if (targetScreenId !== 'screen-chat' && intervaloChat) {
+                clearInterval(intervaloChat);
+                intervaloChat = null;
+            }
+
+            if (targetScreenId === 'screen-volunteer' && perfil === 'necessitado') {
+                targetScreenId = 'screen-home';
+            }
+
+            if (targetScreenId === 'screen-help' && perfil === 'voluntario') {
+                targetScreenId = 'screen-home';
+            }
+
+            screens.forEach(screenId => {
+                const element = document.getElementById(screenId);
+                if(element) element.classList.add('hidden-screen');
+            });
+
+            const targetElement = document.getElementById(targetScreenId);
+            if(targetElement) targetElement.classList.remove('hidden-screen');
+
+            if (targetScreenId === 'screen-home') {
+                btnBack.classList.add('hidden-screen');
+                resetHelpScreen();
+                aplicarPerfilUsuario();
+            } else if (targetScreenId !== 'screen-login') {
+                btnBack.classList.remove('hidden-screen');
+                if (targetScreenId === 'screen-volunteer') {
+                    carregarPedidos();
+                }
+            }
+
+            if (targetScreenId === 'screen-perfil') {
+                atualizarPerfilTela();
+            }
+
+            if (localStorage.getItem('usuario_id')) {
+                btnLogout.classList.remove('hidden-screen');
+                btnNotificacoes?.classList.remove('hidden-screen');
+                mostrarNomeUsuario();
+            } else {
+                btnLogout.classList.add('hidden-screen');
+                btnNotificacoes?.classList.add('hidden-screen');
+                usuarioLogado.classList.add('hidden-screen');
+            }
+        }
+
+        btnBack.addEventListener('click', () => {
+            navigateTo('screen-home');
+        });
+
+        btnNotificacoes?.addEventListener('click', alternarNotificacoes);
+        btnFecharNotificacoes?.addEventListener('click', () => notificacoesPanel?.classList.add('hidden-screen'));
+        btnLimparNotificacoes?.addEventListener('click', limparNotificacoes);
+
+        btnLogout.addEventListener('click', () => {
+            sairDoSistema();
+        });
+
+        document.getElementById('btn-perfil-sair')?.addEventListener('click', () => {
+            sairDoSistema();
+        });
+
+        function mostrarFormularioPerfil() {
+            const form = document.getElementById('form-perfil');
+            if (!form) return;
+            form.classList.toggle('hidden');
+        }
+
+        async function obterLocalizacaoUsuario() {
+            const status = document.getElementById('status-localizacao');
+            if (!navigator.geolocation) {
+                if (status) {
+                    status.textContent = 'Seu navegador não suporta geolocalização.';
+                    status.classList.remove('hidden');
+                }
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    ({ coords }) => {
+                        const lat = coords.latitude;
+                        const lng = coords.longitude;
+                        salvarLocalizacaoUsuario(lat, lng);
+                        if (status) {
+                            status.textContent = `Localização capturada: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                            status.classList.remove('hidden');
+                        }
+                        resolve({ latitude: lat, longitude: lng });
+                    },
+                    () => {
+                        if (status) {
+                            status.textContent = 'Não foi possível usar sua localização agora.';
+                            status.classList.remove('hidden');
+                        }
+                        resolve(null);
+                    },
+                    { enableHighAccuracy: true, timeout: 15000 }
+                );
+            });
+        }
+
+        async function atualizarLocalizacaoNoServidor() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            const localizacao = obterLocalizacaoAtualLocal();
+            if (!usuarioId || !localizacao) return;
+
+            await fetch(`/api/usuarios/${usuarioId}/localizacao`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(localizacao)
+            });
+        }
+
+        async function salvarPerfilUsuario() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            if (!usuarioId) return;
+
+            const nomeInput = document.getElementById('perfil-nome-input');
+            const senhaInput = document.getElementById('perfil-senha-input');
+            const payload = {};
+
+            if (nomeInput && nomeInput.value.trim()) {
+                payload.nome = nomeInput.value.trim();
+            }
+
+            if (senhaInput && senhaInput.value.trim()) {
+                payload.senha = senhaInput.value.trim();
+            }
+
+            const localizacaoAtual = obterLocalizacaoAtualLocal();
+            if (localizacaoAtual) {
+                payload.latitude = localizacaoAtual.latitude;
+                payload.longitude = localizacaoAtual.longitude;
+            }
+
+            if (Object.keys(payload).length === 0) {
+                alert('Informe pelo menos um campo para atualizar.');
+                return;
+            }
+
+            const response = await fetch(`/api/usuarios/${usuarioId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const resultado = await response.json();
+
+            if (response.ok) {
+                if (payload.nome) {
+                    localStorage.setItem('usuario_nome', payload.nome);
+                }
+                atualizarPerfilTela();
+                alert(resultado.mensagem || 'Perfil atualizado com sucesso!');
+            } else {
+                alert(resultado.erro || 'Erro ao atualizar perfil.');
+            }
+        }
+
+        async function carregarNotificacoes() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            const countEl = document.getElementById('notificacao-count');
+            if (!usuarioId || !countEl) return;
+
+            try {
+                const response = await fetch(`/api/usuarios/${usuarioId}/notificacoes`);
+                if (!response.ok) return;
+                const notificacoes = await response.json();
+                const total = Array.isArray(notificacoes) ? notificacoes.length : 0;
+                countEl.textContent = total > 9 ? '9+' : String(total);
+                countEl.parentElement.classList.toggle('hidden-screen', total === 0);
+
+                if (!listaNotificacoes) return;
+                if (!notificacoes.length) {
+                    listaNotificacoes.innerHTML = '<p class="text-gray-600">Você ainda não tem notificações.</p>';
+                    return;
+                }
+
+                listaNotificacoes.innerHTML = notificacoes.map(n => `
+                    <button type="button" onclick="abrirDestinoNotificacao('${n.tipo}', ${Number(n.id_pedido) || 0})" class="w-full text-left border border-orange-200 bg-orange-50 hover:bg-orange-100 rounded-2xl p-3 transition-colors">
+                        <p class="font-semibold text-gray-800">${escaparHtml(n.mensagem)}</p>
+                        <p class="text-xs text-gray-500 mt-1">${new Date(n.criado_em).toLocaleString('pt-BR')}</p>
+                        <p class="text-xs text-orange-700 font-semibold mt-2">Clique para abrir</p>
+                    </button>
+                `).join('');
+            } catch (error) {
+                if (countEl) {
+                    countEl.textContent = '0';
+                }
+            }
+        }
+
+        async function limparNotificacoes() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            if (!usuarioId) return;
+            if (!confirm('Deseja apagar todas as notificações?')) return;
+
+            const response = await fetch(`/api/usuarios/${usuarioId}/notificacoes`, {
+                method: 'DELETE'
+            });
+            const resultado = await response.json();
+
+            if (!response.ok) {
+                alert(resultado.erro || 'Não foi possível limpar as notificações.');
+                return;
+            }
+
+            await carregarNotificacoes();
+        }
+
+        let pedidoNotificacaoAlvo = null;
+
+        function destacarPedidoNotificacao(lista) {
+            if (!pedidoNotificacaoAlvo || !lista) return;
+
+            const pedido = lista.querySelector(`[data-pedido-id="${pedidoNotificacaoAlvo}"]`);
+            pedidoNotificacaoAlvo = null;
+            if (!pedido) return;
+
+            pedido.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            pedido.classList.add('ring-4', 'ring-orange-400');
+            setTimeout(() => pedido.classList.remove('ring-4', 'ring-orange-400'), 2500);
+        }
+
+        function abrirDestinoNotificacao(tipo, idPedido) {
+            notificacoesPanel?.classList.add('hidden-screen');
+
+            if (!idPedido) {
+                return;
+            }
+
+            pedidoNotificacaoAlvo = idPedido;
+
+            if (tipo === 'mensagem_nova') {
+                abrirChat(idPedido);
+                return;
+            }
+
+            navigateTo('screen-perfil');
+            if (localStorage.getItem('usuario_perfil') === 'voluntario') {
+                carregarConversas();
+            } else {
+                carregarMinhasSolicitacoes();
+            }
+        }
+
+        function alternarNotificacoes() {
+            if (!notificacoesPanel) return;
+            const visivel = !notificacoesPanel.classList.contains('hidden-screen');
+            notificacoesPanel.classList.toggle('hidden-screen', visivel);
+            if (!visivel) {
+                carregarNotificacoes();
+            }
+        }
+
+        async function carregarMinhasSolicitacoes() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            const lista = document.getElementById('lista-minhas-solicitacoes');
+            if (!lista || !usuarioId) return;
+
+            lista.classList.remove('hidden');
+            lista.innerHTML = '<p class="text-lg text-gray-600">Buscando suas solicitações...</p>';
+
+            const response = await fetch(`/api/pedidos/minhas/${usuarioId}`);
+            const pedidos = await response.json();
+
+            if (!pedidos.length) {
+                lista.innerHTML = '<p class="text-lg text-gray-600">Você ainda não fez nenhuma solicitação.</p>';
+                return;
+            }
+
+            lista.innerHTML = pedidos.map(pedido => {
+                const statusTexto = {
+                    pendente: 'Aguardando voluntário',
+                    aceito: 'Voluntário aceitou o pedido',
+                    em_andamento: 'Ajuda em andamento',
+                    concluido: 'Ajuda concluída',
+                    cancelado: 'Pedido cancelado'
+                }[pedido.status] || pedido.status;
+
+                const nomeVoluntario = pedido.nome_voluntario ? `
+                    <p class="text-gray-700 font-semibold text-green-700">Voluntário: ${pedido.nome_voluntario}</p>
+                ` : '';
+                const motivoCancelamento = pedido.motivo_cancelamento ? `
+                    <p class="text-gray-700"><strong>Motivo:</strong> ${escaparHtml(pedido.motivo_cancelamento)}</p>
+                ` : '';
+                const detalheData = pedido.criado_em ? `
+                    <p class="text-gray-600 text-sm">Criado em: ${formatarData(pedido.criado_em)}</p>
+                ` : '';
+                const detalheAceito = pedido.aceito_em ? `
+                    <p class="text-gray-600 text-sm">Aceito em: ${formatarData(pedido.aceito_em)}</p>
+                ` : '';
+                const detalheConcluido = pedido.concluido_em ? `
+                    <p class="text-gray-600 text-sm">Concluído em: ${formatarData(pedido.concluido_em)}</p>
+                ` : '';
+
+                const rotaMaps = pedido.latitude && pedido.longitude && pedido.nome_voluntario
+                    ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${pedido.latitude},${pedido.longitude}&travelmode=driving" target="_blank" rel="noopener noreferrer" class="block w-full mt-3 bg-blue-600 text-white font-bold py-3 px-4 rounded-xl text-center">Ver rota para o voluntário</a>`
+                    : '';
+
+                const botaoChat = pedido.nome_voluntario
+                    ? `<button onclick="abrirChat(${pedido.id_pedido})" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl">Abrir chat</button>`
+                    : '';
+                const botoesStatus = ['aceito', 'em_andamento'].includes(pedido.status)
+                    ? `<div class="flex gap-2 mt-3">
+                        <button onclick="atualizarStatusPedido(${pedido.id_pedido}, 'concluido')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">Concluído</button>
+                        <button onclick="atualizarStatusPedido(${pedido.id_pedido}, 'cancelado')" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl">Cancelar</button>
+                    </div>`
+                    : '';
+
+                return `
+                    <div data-pedido-id="${pedido.id_pedido}" class="border border-orange-200 rounded-xl p-3 mb-3 bg-orange-50">
+                        <p class="font-bold text-lg">Pedido #${pedido.id_pedido}</p>
+                        <p class="text-gray-700">Categoria: ${pedido.categoria}</p>
+                        <p class="text-gray-700">Descrição: ${pedido.descricao_outros || 'Sem descrição adicional'}</p>
+                        <p class="text-gray-700 font-semibold">Status: ${statusTexto}</p>
+                        ${detalheData}
+                        ${detalheAceito}
+                        ${detalheConcluido}
+                        ${motivoCancelamento}
+                        ${nomeVoluntario}
+                        ${rotaMaps}
+                        ${botaoChat}
+                        ${botoesStatus}
+                    </div>
+                `;
+            }).join('');
+            destacarPedidoNotificacao(lista);
+        }
+
+        async function atualizarStatusPedido(idPedido, status) {
+            let motivo = null;
+            if (status === 'cancelado') {
+                motivo = prompt('Informe o motivo do cancelamento:');
+                if (!motivo || !motivo.trim()) {
+                    alert('É necessário informar o motivo do cancelamento.');
+                    return;
+                }
+            }
+
+            const payload = { status };
+            if (motivo) {
+                payload.motivo = motivo.trim();
+            }
+
+            const response = await fetch(`/api/pedidos/${idPedido}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const resultado = await response.json();
+            if (!response.ok) {
+                alert(resultado.erro || 'Não foi possível atualizar o pedido.');
+                return;
+            }
+
+            if (localStorage.getItem('usuario_perfil') === 'voluntario') {
+                carregarConversas();
+            } else {
+                carregarMinhasSolicitacoes();
+            }
+        }
+
+        let chatPedidoAtual = null;
+        let intervaloChat = null;
+
+        async function abrirChat(idPedido) {
+            chatPedidoAtual = idPedido;
+            document.getElementById('chat-titulo').innerText = `Conversa do pedido #${idPedido}`;
+            navigateTo('screen-chat');
+            await carregarMensagens();
+            if (intervaloChat) clearInterval(intervaloChat);
+            intervaloChat = setInterval(carregarMensagens, 5000);
+            document.getElementById('chat-input')?.focus();
+        }
+
+        function formatarData(dataIso) {
+            if (!dataIso) return 'Sem data';
+            const data = new Date(dataIso);
+            if (Number.isNaN(data.getTime())) return 'Sem data';
+            return data.toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escaparHtml(valor) {
+            return String(valor)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        async function carregarMensagens() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            const area = document.getElementById('chat-mensagens');
+            if (!usuarioId || !chatPedidoAtual || !area) return;
+
+            const response = await fetch(`/api/pedidos/${chatPedidoAtual}/mensagens?id_usuario=${usuarioId}`);
+            const resultado = await response.json();
+            if (!response.ok) {
+                area.innerHTML = `<p class="text-red-600">${resultado.erro || 'Não foi possível carregar a conversa.'}</p>`;
+                return;
+            }
+
+            if (!resultado.length) {
+                area.innerHTML = '<p class="text-gray-500">Nenhuma mensagem ainda. Inicie a conversa.</p>';
+                return;
+            }
+
+            area.innerHTML = resultado.map(mensagem => `
+                <div class="${Number(mensagem.id_remetente) === Number(usuarioId) ? 'text-right' : 'text-left'}">
+                    <span class="inline-block max-w-[85%] rounded-2xl px-4 py-2 ${Number(mensagem.id_remetente) === Number(usuarioId) ? 'bg-orange-600 text-white' : 'bg-white border border-gray-200 text-gray-800'}">
+                        <strong class="block text-sm">${escaparHtml(mensagem.nome_remetente)}</strong>
+                        ${escaparHtml(mensagem.texto)}
+                    </span>
+                </div>
+            `).join('');
+            area.scrollTop = area.scrollHeight;
+        }
+
+        async function enviarMensagem(evento) {
+            evento.preventDefault();
+            const input = document.getElementById('chat-input');
+            const texto = input.value.trim();
+            const usuarioId = localStorage.getItem('usuario_id');
+            if (!texto || !usuarioId || !chatPedidoAtual) return;
+
+            const response = await fetch(`/api/pedidos/${chatPedidoAtual}/mensagens`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_usuario: Number(usuarioId), texto })
+            });
+            const resultado = await response.json();
+            if (!response.ok) {
+                alert(resultado.erro || 'Não foi possível enviar a mensagem.');
+                return;
+            }
+
+            input.value = '';
+            await carregarMensagens();
+        }
+
+        async function carregarConversas() {
+            const usuarioId = localStorage.getItem('usuario_id');
+            const lista = document.getElementById('lista-minhas-solicitacoes');
+            if (!lista || !usuarioId) return;
+
+            lista.classList.remove('hidden');
+            lista.innerHTML = '<p class="text-lg text-gray-600">Buscando suas conversas...</p>';
+            const response = await fetch(`/api/pedidos/conversas/${usuarioId}`);
+            const conversas = await response.json();
+
+            if (!conversas.length) {
+                lista.innerHTML = '<p class="text-lg text-gray-600">Você ainda não tem conversas.</p>';
+                return;
+            }
+
+            const statusTexto = {
+                aceito: 'Pedido aceito',
+                em_andamento: 'Ajuda em andamento',
+                concluido: 'Pedido concluído',
+                cancelado: 'Pedido cancelado'
+            };
+
+            lista.innerHTML = conversas.map(conversa => `
+                <div data-pedido-id="${conversa.id_pedido}" class="border border-orange-200 rounded-xl p-3 mb-3 bg-orange-50">
+                    <p class="font-bold text-lg">Pedido #${conversa.id_pedido}</p>
+                    <p class="text-gray-700">${conversa.categoria}</p>
+                    <p class="text-gray-700">Solicitante: ${conversa.nome_solicitante || 'Usuário'}</p>
+                    <p class="text-gray-700 font-semibold">Status: ${statusTexto[conversa.status] || conversa.status}</p>
+                    <button onclick="abrirChat(${conversa.id_pedido})" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl">Abrir chat</button>
+                    ${conversa.status === 'aceito' ? `<button onclick="atualizarStatusPedido(${conversa.id_pedido}, 'em_andamento')" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">Iniciar ajuda</button>` : ''}
+                    ${['aceito', 'em_andamento'].includes(conversa.status) ? `<button onclick="atualizarStatusPedido(${conversa.id_pedido}, 'concluido')" class="w-full mt-3 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl">Marcar como concluída</button>` : ''}
+                    ${['aceito', 'em_andamento'].includes(conversa.status) ? `<button onclick="atualizarStatusPedido(${conversa.id_pedido}, 'cancelado')" class="w-full mt-3 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl">Cancelar pedido</button>` : ''}
+                </div>
+            `).join('');
+            destacarPedidoNotificacao(lista);
+        }
+
+        document.getElementById('chat-form')?.addEventListener('submit', enviarMensagem);
+
+        function toggleOption(button, isOther = false) {
+            button.classList.toggle('border-orange-600');
+            button.classList.toggle('bg-orange-50');
+            button.classList.toggle('border-gray-300');
+
+            if (isOther) {
+                const otherContainer = document.getElementById('other-text-container');
+                if (button.classList.contains('border-orange-600')) {
+                    otherContainer.classList.remove('hidden');
+                    document.getElementById('other-request-text').focus();
+                } else {
+                    otherContainer.classList.add('hidden');
+                }
+            }
+        }
+
+        async function confirmHelp() {
+            const options = document.querySelectorAll('.help-option');
+            let selecionado = null;
+
+            options.forEach(opt => {
+                if (opt.classList.contains('border-orange-600')) {
+                    selecionado = opt.innerText.replace('➕', '').trim();
+                }
+            });
+
+            const isOtherSelected = document.getElementById('btn-other').classList.contains('border-orange-600');
+            const otherText = document.getElementById('other-request-text').value.trim();
+
+            if (!selecionado) {
+                const title = document.querySelector('#screen-help h2');
+                title.innerHTML = "<span class='text-red-600'>Por favor, escolha uma opção abaixo:</span>";
+                setTimeout(() => { title.innerHTML = "Do que você precisa?"; }, 3000);
+                return;
+            }
+
+            if (isOtherSelected && otherText === "") {
+                const title = document.querySelector('#screen-help h2');
+                title.innerHTML = "<span class='text-red-600'>Por favor, digite o que precisa abaixo:</span>";
+                document.getElementById('other-request-text').focus();
+                setTimeout(() => { title.innerHTML = "Do que você precisa?"; }, 3000);
+                return;
+            }
+
+            const categoriaFinal = isOtherSelected ? "Outros" : selecionado;
+            const descricaoFinal = isOtherSelected ? otherText : "";
+            const usuarioId = localStorage.getItem('usuario_id');
+            const localizacaoAtual = obterLocalizacaoAtualLocal();
+            let coordenadas = localizacaoAtual;
+
+            if (!coordenadas) {
+                coordenadas = await obterLocalizacaoUsuario();
+            }
+
+            await fetch('/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    categoria: categoriaFinal,
+                    descricao: descricaoFinal,
+                    id_solicitante: usuarioId,
+                    latitude: coordenadas ? coordenadas.latitude : null,
+                    longitude: coordenadas ? coordenadas.longitude : null
+                })
+            });
+
+            document.getElementById('success-message').classList.remove('hidden');
+            setTimeout(() => { navigateTo('screen-home'); }, 4000);
+        }
+
+        function resetHelpScreen() {
+            document.getElementById('success-message').classList.add('hidden');
+            document.querySelector('#screen-help h2').innerText = "Do que você precisa?";
+            const options = document.querySelectorAll('.help-option');
+            options.forEach(opt => {
+                opt.classList.remove('border-orange-600', 'bg-orange-50');
+                opt.classList.add('border-gray-300');
+            });
+            document.getElementById('other-text-container').classList.add('hidden');
+            document.getElementById('other-request-text').value = "";
+        }
+
+        async function carregarPedidos() {
+            const lista = document.getElementById('volunteer-list');
+            const raioSelecionado = Number(document.getElementById('raio-pedidos')?.value || 10);
+            const filtroCategoria = document.getElementById('filtro-categoria')?.value || 'todas';
+            lista.innerHTML = "<p class='text-xl text-center'>Buscando pedidos...</p>";
+
+            let localizacaoAtual = obterLocalizacaoAtualLocal();
+            if (!localizacaoAtual) {
+                localizacaoAtual = await obterLocalizacaoUsuario();
+            }
+
+            if (!localizacaoAtual) {
+                lista.innerHTML = "<p class='text-xl text-center text-gray-600'>Para ver pedidos por proximidade, permita acessar sua localização.</p>";
+                return;
+            }
+
+            const response = await fetch('/api/pedidos');
+            const pedidos = await response.json();
+
+            if (pedidos.length === 0) {
+                lista.innerHTML = "<p class='text-xl text-center text-gray-600'>Nenhum pedido no momento.</p>";
+                atualizarMapaPedidos(localizacaoAtual, []);
+                return;
+            }
+
+            const categorias = [...new Set(pedidos.map(pedido => pedido.categoria).filter(Boolean))].sort();
+            const selectCategoria = document.getElementById('filtro-categoria');
+            if (selectCategoria && selectCategoria.options.length <= 1) {
+                selectCategoria.innerHTML = '<option value="todas">Todas</option>' + categorias.map(categoria => `<option value="${escaparHtml(categoria)}">${escaparHtml(categoria)}</option>`).join('');
+            }
+
+            const pedidosComDistancia = pedidos
+                .filter(pedido => pedido.latitude && pedido.longitude)
+                .map(pedido => ({
+                    ...pedido,
+                    distanciaKm: calcularDistanciaKm(
+                        localizacaoAtual.latitude,
+                        localizacaoAtual.longitude,
+                        Number(pedido.latitude),
+                        Number(pedido.longitude)
+                    )
+                }))
+                .filter(pedido => pedido.distanciaKm <= raioSelecionado)
+                .filter(pedido => filtroCategoria === 'todas' || pedido.categoria === filtroCategoria)
+                .sort((a, b) => a.distanciaKm - b.distanciaKm);
+
+            if (pedidosComDistancia.length === 0) {
+                lista.innerHTML = `<p class='text-xl text-center text-gray-600'>Nenhum pedido dentro de ${raioSelecionado} km do seu raio atual com o filtro selecionado.</p>`;
+                atualizarMapaPedidos(localizacaoAtual, []);
+                return;
+            }
+
+            atualizarMapaPedidos(localizacaoAtual, pedidosComDistancia);
+
+            lista.innerHTML = "";
+            pedidosComDistancia.forEach(pedido => {
+                const textoExibicao = pedido.categoria === "Outros" ? pedido.descricao_outros : pedido.categoria;
+                const nomeSolicitante = pedido.nome_solicitante || 'Usuário';
+                const mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${localizacaoAtual.latitude},${localizacaoAtual.longitude}&destination=${pedido.latitude},${pedido.longitude}&travelmode=driving`;
+                const html = `
+                <div class="bg-white border-2 border-gray-200 p-6 rounded-2xl shadow-lg">
+                    <h3 class="text-2xl font-bold mb-2">Pedido de ${nomeSolicitante}</h3>
+                    <p class="text-lg font-semibold text-orange-700 mb-2">${pedido.distanciaKm.toFixed(1)} km de você</p>
+                    <p class="text-2xl font-medium text-gray-800 mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        "${textoExibicao}"
+                    </p>
+                    <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-xl text-xl shadow-md transition-colors text-center mb-4">
+                        Rota para ${nomeSolicitante} no Google Maps
+                    </a>
+                    <button class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-5 px-4 rounded-xl text-2xl shadow-md transition-colors" onclick="acceptRequest(this, ${pedido.id_pedido})">
+                        Ajudar neste pedido
+                    </button>
+                </div>
+            `;
+                lista.innerHTML += html;
+            });
+        }
+
+        document.getElementById('raio-pedidos')?.addEventListener('change', () => {
+            if (localStorage.getItem('usuario_id')) {
+                carregarPedidos();
+            }
+        });
+
+        document.getElementById('filtro-categoria')?.addEventListener('change', () => {
+            if (localStorage.getItem('usuario_id')) {
+                carregarPedidos();
+            }
+        });
+
+        let mapaVoluntario;
+
+        function atualizarMapaPedidos(localizacaoAtual, pedidos) {
+            if (typeof L === 'undefined') return;
+
+            if (!mapaVoluntario) {
+                mapaVoluntario = L.map('volunteer-map');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(mapaVoluntario);
+            }
+
+            mapaVoluntario.eachLayer(camada => {
+                if (camada instanceof L.Marker || camada instanceof L.CircleMarker) mapaVoluntario.removeLayer(camada);
+            });
+
+            const pontos = [[localizacaoAtual.latitude, localizacaoAtual.longitude]];
+            L.circleMarker([localizacaoAtual.latitude, localizacaoAtual.longitude], {
+                radius: 10,
+                color: '#dc2626',
+                fillColor: '#dc2626',
+                fillOpacity: 0.9
+            })
+                .addTo(mapaVoluntario)
+                .bindPopup('Você está aqui');
+
+            pedidos.forEach(pedido => {
+                const ponto = [Number(pedido.latitude), Number(pedido.longitude)];
+                pontos.push(ponto);
+                L.circleMarker(ponto, {
+                    radius: 9,
+                    color: '#f97316',
+                    fillColor: '#f97316',
+                    fillOpacity: 0.9
+                })
+                    .addTo(mapaVoluntario)
+                    .bindPopup(`<strong>${pedido.nome_solicitante || 'Pessoa solicitante'}</strong><br>${pedido.categoria}`);
+            });
+
+            mapaVoluntario.fitBounds(pontos, { padding: [30, 30], maxZoom: 14 });
+            setTimeout(() => mapaVoluntario.invalidateSize(), 0);
+        }
+
+        async function acceptRequest(button, id_pedido) {
+            const voluntarioId = localStorage.getItem('usuario_id');
+            const response = await fetch(`/api/pedidos/${id_pedido}/aceitar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voluntario_id: voluntarioId })
+            });
+
+            const resultado = await response.json();
+
+            button.innerText = "Pedido Aceito! ✔️";
+            button.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+            button.classList.add('bg-gray-400', 'cursor-not-allowed');
+            button.disabled = true;
+
+            const card = button.parentElement;
+            const msg = document.createElement('p');
+            msg.className = "text-xl text-orange-700 font-bold mt-4 text-center";
+            msg.innerText = resultado.voluntario_nome
+                ? `Você está ajudando e está a caminho. Voluntário: ${resultado.voluntario_nome}`
+                : 'Pedido aceito e atualizado no sistema.';
+            card.appendChild(msg);
+        }
+
+        async function fazerCadastro() {
+            const nome = document.getElementById('cadastro-nome').value.trim();
+            const telefone = document.getElementById('cadastro-telefone').value.trim();
+            const senha = document.getElementById('cadastro-senha').value.trim();
+            const tipoPerfil = document.getElementById('cadastro-tipo').value;
+            const localizacaoAtual = obterLocalizacaoAtualLocal();
+
+            if (!nome || !telefone || !senha || !tipoPerfil) {
+                alert('Preencha todos os campos do cadastro.');
+                return;
+            }
+
+            const response = await fetch('/api/cadastro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nome,
+                    telefone,
+                    senha,
+                    tipo_perfil: tipoPerfil,
+                    latitude: localizacaoAtual ? localizacaoAtual.latitude : null,
+                    longitude: localizacaoAtual ? localizacaoAtual.longitude : null
+                })
+            });
+
+            const resultado = await response.json();
+
+            if (response.ok) {
+                document.getElementById('cadastro-nome').value = '';
+                document.getElementById('cadastro-telefone').value = '';
+                document.getElementById('cadastro-senha').value = '';
+                document.getElementById('cadastro-tipo').value = '';
+                localStorage.removeItem('usuario_latitude');
+                localStorage.removeItem('usuario_longitude');
+                document.getElementById('status-localizacao').classList.add('hidden');
+                alert('Cadastro realizado com sucesso!');
+                navigateTo('screen-login');
+            } else {
+                alert(resultado.erro || 'Erro ao cadastrar.');
+            }
+        }
+
+        async function fazerLogin() {
+            const telefone = document.getElementById('login-telefone').value;
+            const senha = document.getElementById('login-senha').value;
+
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telefone, senha })
+            });
+
+            if (response.ok) {
+                const usuario = await response.json();
+                localStorage.setItem('usuario_id', usuario.id_usuario);
+                localStorage.setItem('usuario_nome', usuario.nome);
+                localStorage.setItem('usuario_perfil', usuario.tipo_perfil);
+                if (usuario.latitude && usuario.longitude) {
+                    salvarLocalizacaoUsuario(usuario.latitude, usuario.longitude);
+                }
+
+                await carregarNotificacoes();
+                iniciarNotificacoesAutomaticas();
+                document.getElementById('screen-login').classList.add('hidden-screen');
+                navigateTo('screen-home');
+            } else {
+                alert("Telefone ou senha incorretos.");
+            }
+        }
+
+        function iniciarNotificacoesAutomaticas() {
+            if (notificacoesIntervalo) {
+                clearInterval(notificacoesIntervalo);
+            }
+            notificacoesIntervalo = setInterval(() => {
+                if (localStorage.getItem('usuario_id')) {
+                    carregarNotificacoes();
+                }
+            }, 15000);
+        }
+
+        window.onload = async () => {
+            aplicarPerfilUsuario();
+            if (localStorage.getItem('usuario_id')) {
+                const localizacaoAtual = obterLocalizacaoAtualLocal();
+                if (localizacaoAtual) {
+                    await atualizarLocalizacaoNoServidor();
+                }
+                await carregarNotificacoes();
+                iniciarNotificacoesAutomaticas();
+                navigateTo('screen-home');
+            } else {
+                navigateTo('screen-login');
+            }
+        }
+    </script>
+</body>
+</html>
