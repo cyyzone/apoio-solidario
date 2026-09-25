@@ -26,6 +26,28 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'apoio-solidario-dev-key
 def usuario_da_sessao():
     return session.get('usuario_id')
 
+def normalizar_cpf(cpf):
+    return ''.join(caractere for caractere in str(cpf or '') if caractere.isdigit())
+
+def cpf_valido(cpf):
+    cpf = normalizar_cpf(cpf)
+    if len(cpf) != 11 or len(set(cpf)) == 1:
+        return False
+
+    for quantidade in (9, 10):
+        soma = sum(
+            int(digito) * (quantidade + 1 - indice)
+            for indice, digito in enumerate(cpf[:quantidade])
+        )
+        resto = (soma * 10) % 11
+        digito = 0 if resto == 10 else resto
+        if int(cpf[quantidade]) != digito:
+            return False
+    return True
+
+def normalizar_telefone(telefone):
+    return ''.join(caractere for caractere in str(telefone or '') if caractere.isdigit())
+
 def acesso_negado(mensagem='Faça login para continuar.'):
     return jsonify({"erro": mensagem}), 401
 
@@ -35,7 +57,6 @@ def usando_supabase():
 class CursorCompat:
     def __init__(self, cursor):
         self.cursor = cursor
-
     def execute(self, consulta, parametros=()):
         return self.cursor.execute(consulta.replace('?', '%s'), parametros)
 
@@ -105,6 +126,7 @@ def garantir_estrutura_supabase():
             CREATE TABLE IF NOT EXISTS usuarios (
                 id_usuario BIGSERIAL PRIMARY KEY,
                 nome TEXT NOT NULL,
+                cpf TEXT UNIQUE,
                 telefone TEXT NOT NULL UNIQUE,
                 senha TEXT NOT NULL,
                 tipo_perfil TEXT NOT NULL,
@@ -112,6 +134,8 @@ def garantir_estrutura_supabase():
                 longitude DOUBLE PRECISION
             )
         ''')
+        c.execute('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cpf TEXT')
+        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS usuarios_cpf_idx ON usuarios(cpf) WHERE cpf IS NOT NULL')
         c.execute('''
             CREATE TABLE IF NOT EXISTS pedidos (
                 id_pedido BIGSERIAL PRIMARY KEY,
@@ -165,6 +189,7 @@ def garantir_estrutura_banco():
                 CREATE TABLE usuarios (
                     id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
                     nome TEXT NOT NULL,
+                    cpf TEXT,
                     telefone TEXT NOT NULL UNIQUE,
                     senha TEXT NOT NULL,
                     tipo_perfil TEXT NOT NULL
@@ -180,6 +205,10 @@ def garantir_estrutura_banco():
                 c.execute('ALTER TABLE usuarios ADD COLUMN latitude REAL')
             if 'longitude' not in colunas_usuarios:
                 c.execute('ALTER TABLE usuarios ADD COLUMN longitude REAL')
+            if 'cpf' not in colunas_usuarios:
+                c.execute('ALTER TABLE usuarios ADD COLUMN cpf TEXT')
+
+        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS usuarios_cpf_idx ON usuarios(cpf) WHERE cpf IS NOT NULL')
 
         c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'")
         if c.fetchone() is None:
@@ -268,6 +297,12 @@ def home():
 @app.route('/api/cadastro', methods=['POST'])
 def cadastrar():
     dados = request.json or {}
+    cpf = normalizar_cpf(dados.get('cpf'))
+    telefone = normalizar_telefone(dados.get('telefone'))
+    if not cpf_valido(cpf):
+        return jsonify({"erro": "Informe um CPF válido."}), 400
+    if len(telefone) < 10:
+        return jsonify({"erro": "Informe um telefone válido para contato."}), 400
     latitude = dados.get('latitude')
     longitude = dados.get('longitude')
 
@@ -275,11 +310,12 @@ def cadastrar():
         with conectar_banco() as conn:
             c = conn.cursor()
             c.execute('''
-                INSERT INTO usuarios (nome, telefone, senha, tipo_perfil, latitude, longitude)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO usuarios (nome, cpf, telefone, senha, tipo_perfil, latitude, longitude)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 dados['nome'],
-                dados['telefone'],
+                cpf,
+                telefone,
                 dados['senha'],
                 dados['tipo_perfil'],
                 latitude,
@@ -288,7 +324,7 @@ def cadastrar():
             conn.commit()
         return jsonify({"mensagem": "Cadastro realizado!"}), 201
     except INTEGRITY_ERRORS:
-        return jsonify({"erro": "Telefone já cadastrado"}), 400
+        return jsonify({"erro": "CPF ou telefone já cadastrado."}), 400
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -296,9 +332,9 @@ def login():
     with conectar_banco() as conn:
         c = conn.cursor()
         c.execute('''
-            SELECT id_usuario, nome, tipo_perfil, latitude, longitude FROM usuarios 
-            WHERE telefone = ? AND senha = ?
-        ''', (dados['telefone'], dados['senha']))
+            SELECT id_usuario, nome, cpf, telefone, tipo_perfil, latitude, longitude FROM usuarios
+            WHERE cpf = ? AND senha = ?
+        ''', (normalizar_cpf(dados.get('cpf')), dados.get('senha')))
         usuario = c.fetchone()
 
     if usuario:
@@ -353,7 +389,8 @@ def listar_pedidos():
                 p.latitude,
                 p.longitude,
                 p.status,
-                u.nome AS nome_solicitante
+                u.nome AS nome_solicitante,
+                u.telefone AS telefone_solicitante
             FROM pedidos p
             LEFT JOIN usuarios u ON u.id_usuario = p.id_solicitante
             WHERE p.status = 'pendente'
@@ -403,9 +440,10 @@ def aceitar_pedido(id_pedido):
         nome_voluntario = dict(voluntario)['voluntario_nome'] if voluntario else 'Voluntário'
 
         c.execute('''
-            SELECT id_solicitante
-            FROM pedidos
-            WHERE id_pedido = ?
+            SELECT p.id_solicitante, u.telefone AS telefone_solicitante
+            FROM pedidos p
+            LEFT JOIN usuarios u ON u.id_usuario = p.id_solicitante
+            WHERE p.id_pedido = ?
         ''', (id_pedido,))
         solicitante = c.fetchone()
         if solicitante and solicitante['id_solicitante']:
@@ -421,7 +459,8 @@ def aceitar_pedido(id_pedido):
     return jsonify({
         "mensagem": "Pedido aceito!",
         "voluntario_nome": nome_voluntario,
-        "id_voluntario": id_voluntario
+        "id_voluntario": id_voluntario,
+        "telefone_solicitante": solicitante['telefone_solicitante'] if solicitante else None
     })
 
 @app.route('/api/pedidos/<int:id_pedido>/status', methods=['PUT'])
@@ -664,7 +703,9 @@ def listar_conversas(id_usuario):
                 p.categoria,
                 p.status,
                 s.nome AS nome_solicitante,
-                v.nome AS nome_voluntario
+                s.telefone AS telefone_solicitante,
+                v.nome AS nome_voluntario,
+                v.telefone AS telefone_voluntario
             FROM pedidos p
             LEFT JOIN usuarios s ON s.id_usuario = p.id_solicitante
             LEFT JOIN usuarios v ON v.id_usuario = p.id_voluntario

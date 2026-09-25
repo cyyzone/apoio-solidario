@@ -3,19 +3,32 @@ import uuid
 import app
 
 
+def gerar_cpf():
+    base = ''.join(str(int(caractere, 16) % 10) for caractere in uuid.uuid4().hex)[:9]
+    digitos = [int(digito) for digito in base]
+    primeiro = sum(digito * (10 - indice) for indice, digito in enumerate(digitos))
+    digitos.append(0 if (primeiro * 10) % 11 == 10 else (primeiro * 10) % 11)
+    segundo = sum(digito * (11 - indice) for indice, digito in enumerate(digitos))
+    digitos.append(0 if (segundo * 10) % 11 == 10 else (segundo * 10) % 11)
+    return ''.join(str(digito) for digito in digitos)
+
+
 def criar_usuario(client, nome, telefone, senha, tipo_perfil):
+    cpf = gerar_cpf()
     resp = client.post(
         '/api/cadastro',
         json={
             'nome': nome,
+            'cpf': cpf,
             'telefone': telefone,
             'senha': senha,
             'tipo_perfil': tipo_perfil,
         },
     )
     assert resp.status_code == 201, resp.get_data(as_text=True)
-    login = client.post('/api/login', json={'telefone': telefone, 'senha': senha})
+    login = client.post('/api/login', json={'cpf': cpf, 'senha': senha})
     assert login.status_code == 200, login.get_data(as_text=True)
+    assert client.post('/api/login', json={'cpf': telefone, 'senha': senha}).status_code == 401
     return login.get_json()
 
 
@@ -23,9 +36,9 @@ def test_cancelamento_salva_motivo_e_restricoes_basicas():
     requester = app.app.test_client()
     volunteer = app.app.test_client()
 
-    suffix = uuid.uuid4().hex[:8]
-    requester_user = criar_usuario(requester, 'Pessoa', '61' + suffix, '123', 'necessitado')
-    volunteer_user = criar_usuario(volunteer, 'Voluntario', '62' + suffix, '123', 'voluntario')
+    suffix = uuid.uuid4().int
+    requester_user = criar_usuario(requester, 'Pessoa', '619' + str(suffix)[-8:], '123', 'necessitado')
+    volunteer_user = criar_usuario(volunteer, 'Voluntario', '629' + str(suffix)[-8:], '123', 'voluntario')
 
     with requester.session_transaction() as sess:
         sess['usuario_id'] = requester_user['id_usuario']
@@ -37,6 +50,13 @@ def test_cancelamento_salva_motivo_e_restricoes_basicas():
 
     pedido = requester.post('/api/pedidos', json={'categoria': 'Teste cancelamento', 'descricao': 'Preciso de ajuda'})
     assert pedido.status_code == 201, pedido.get_data(as_text=True)
+
+    pedidos_disponiveis = volunteer.get('/api/pedidos')
+    assert pedidos_disponiveis.status_code == 200
+    assert any(
+        item['telefone_solicitante'] == '619' + str(suffix)[-8:]
+        for item in pedidos_disponiveis.get_json()
+    )
 
     conn = app.conectar_banco()
     pedido_id = conn.execute(
@@ -66,9 +86,9 @@ def test_notificacoes_sao_geradas_para_ambos_os_lados():
     requester = app.app.test_client()
     volunteer = app.app.test_client()
 
-    suffix = uuid.uuid4().hex[:8]
-    requester_user = criar_usuario(requester, 'Pessoa 2', '71' + suffix, '123', 'necessitado')
-    volunteer_user = criar_usuario(volunteer, 'Voluntario 2', '72' + suffix, '123', 'voluntario')
+    suffix = uuid.uuid4().int
+    requester_user = criar_usuario(requester, 'Pessoa 2', '719' + str(suffix)[-8:], '123', 'necessitado')
+    volunteer_user = criar_usuario(volunteer, 'Voluntario 2', '729' + str(suffix)[-8:], '123', 'voluntario')
 
     with requester.session_transaction() as sess:
         sess['usuario_id'] = requester_user['id_usuario']

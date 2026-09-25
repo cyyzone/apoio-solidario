@@ -60,6 +60,7 @@ Responsabilidades:
 A tabela usuarios armazena:
 - id_usuario
 - nome
+- cpf
 - telefone
 - senha
 - tipo_perfil
@@ -109,12 +110,12 @@ A tabela notificacoes guarda:
 ## Fluxo de negócio
 
 ### Cadastro
-- usuário envia nome, telefone e senha
+- usuário envia nome, CPF, telefone de contato e senha
 - o backend valida os dados
 - o perfil define as permissões do usuário
 
 ### Login
-- o sistema verifica telefone e senha
+- o sistema verifica CPF e senha
 - cria a sessão do usuário
 - retorna os dados do usuário autenticado
 

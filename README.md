@@ -12,7 +12,8 @@ A ideia é simples: uma pessoa cria um pedido de ajuda, outro usuário pode acei
 - Usuários podem se cadastrar como:
   - necessitado
   - voluntário
-- Cada pessoa entra com nome, telefone e senha.
+- Cada pessoa entra com CPF e senha.
+- O telefone fica disponível para contato, inclusive pelo WhatsApp.
 - A sessão do usuário é salva no sistema para manter o acesso.
 
 ### 2. Criação de pedidos

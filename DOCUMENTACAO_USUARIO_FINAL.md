@@ -28,7 +28,7 @@ Há dois tipos de perfil:
 - Voluntário: pessoa que quer ajudar
 
 ### 2. Fazer login
-Depois de cadastrar, o usuário entra com telefone e senha.
+Depois de cadastrar, o usuário entra com CPF e senha. O telefone informado fica reservado para contato, inclusive por WhatsApp.
 
 ### 3. Solicitar ajuda
 Quem é necessitado pode:
