@@ -30,6 +30,8 @@ Há dois tipos de perfil:
 ### 2. Fazer login
 Depois de cadastrar, o usuário entra com CPF e senha. O telefone informado fica reservado para contato, inclusive por WhatsApp.
 
+Ao solicitar ajuda, informe o valor inicial que pode pagar. Depois que o voluntário aceitar o pedido, os dois podem negociar contrapropostas pelo chat. O valor fica acordado quando o solicitante aceitar uma proposta.
+
 ### 3. Solicitar ajuda
 Quem é necessitado pode:
 - escolher uma categoria

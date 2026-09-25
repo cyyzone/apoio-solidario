@@ -82,10 +82,23 @@ A tabela pedidos armazena:
 - longitude
 - status
 - motivo_cancelamento
+- valor_proposto
+- valor_acordado
 - criado_em
 - aceito_em
 - em_andamento
 - concluido_em
+
+### Propostas
+A tabela propostas registra as contrapropostas da negociação:
+- id_proposta
+- id_pedido
+- id_usuario
+- valor
+- status (`pendente`, `aceita`, `recusada`)
+- criado_em
+
+O valor final só é definido quando o solicitante aceita uma proposta.
 
 ### Mensagens
 A tabela mensagens guarda:

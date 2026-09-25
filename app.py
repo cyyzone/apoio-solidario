@@ -45,6 +45,15 @@ def cpf_valido(cpf):
 def normalizar_telefone(telefone):
     return ''.join(caractere for caractere in str(telefone or '') if caractere.isdigit())
 
+def normalizar_valor(valor):
+    try:
+        valor_normalizado = float(str(valor).replace(',', '.'))
+    except (TypeError, ValueError):
+        return None
+    if valor_normalizado <= 0:
+        return None
+    return round(valor_normalizado, 2)
+
 def acesso_negado(mensagem='Faça login para continuar.'):
     return jsonify({"erro": mensagem}), 401
 
@@ -147,6 +156,20 @@ def garantir_estrutura_supabase():
                 concluido_em TIMESTAMPTZ
             )
         ''')
+        c.execute('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS valor_proposto NUMERIC(10, 2)')
+        c.execute('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS valor_acordado NUMERIC(10, 2)')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS propostas (
+                id_proposta BIGSERIAL PRIMARY KEY,
+                id_pedido BIGINT NOT NULL REFERENCES pedidos(id_pedido),
+                id_usuario BIGINT NOT NULL REFERENCES usuarios(id_usuario),
+                valor NUMERIC(10, 2) NOT NULL CHECK (valor > 0),
+                status TEXT NOT NULL DEFAULT 'pendente'
+                    CHECK (status IN ('pendente', 'aceita', 'recusada')),
+                criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        c.execute('CREATE INDEX IF NOT EXISTS propostas_pedido_idx ON propostas(id_pedido, id_proposta)')
         c.execute('''
             CREATE TABLE IF NOT EXISTS mensagens (
                 id_mensagem BIGSERIAL PRIMARY KEY,
@@ -246,15 +269,19 @@ def criar_pedido():
     dados = request.json or {}
     categoria = dados.get('categoria')
     descricao = dados.get('descricao', '')
+    valor_proposto = normalizar_valor(dados.get('valor_proposto'))
     latitude = dados.get('latitude')
     longitude = dados.get('longitude')
+
+    if valor_proposto is None:
+        return jsonify({"erro": "Informe um valor inicial maior que zero."}), 400
 
     with conectar_banco() as conn:
         c = conn.cursor()
         c.execute('''
-            INSERT INTO pedidos (id_solicitante, categoria, descricao_outros, latitude, longitude, status)
-            VALUES (?, ?, ?, ?, ?, 'pendente')
-        ''', (id_solicitante, categoria, descricao, latitude, longitude))
+            INSERT INTO pedidos (id_solicitante, categoria, descricao_outros, valor_proposto, latitude, longitude, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'pendente')
+        ''', (id_solicitante, categoria, descricao, valor_proposto, latitude, longitude))
         conn.commit()
     return jsonify({"mensagem": "Pedido salvo com sucesso!"}), 201
 
@@ -275,6 +302,8 @@ def listar_pedidos():
                 p.descricao_outros,
                 p.latitude,
                 p.longitude,
+                p.valor_proposto,
+                p.valor_acordado,
                 p.status,
                 u.nome AS nome_solicitante,
                 u.telefone AS telefone_solicitante
@@ -285,6 +314,92 @@ def listar_pedidos():
         ''')
         pedidos = [dict(row) for row in c.fetchall()]
     return jsonify(pedidos)
+
+def obter_participacao_pedido(cursor, id_pedido, id_usuario):
+    cursor.execute('''
+        SELECT id_pedido, id_solicitante, id_voluntario, status, valor_acordado
+        FROM pedidos
+        WHERE id_pedido = ?
+          AND (id_solicitante = ? OR id_voluntario = ?)
+    ''', (id_pedido, id_usuario, id_usuario))
+    return cursor.fetchone()
+
+@app.route('/api/pedidos/<int:id_pedido>/propostas', methods=['GET', 'POST'])
+def propostas_do_pedido(id_pedido):
+    id_usuario = usuario_da_sessao()
+    if not id_usuario:
+        return acesso_negado()
+
+    with conectar_banco() as conn:
+        c = conn.cursor()
+        pedido = obter_participacao_pedido(c, id_pedido, id_usuario)
+        if not pedido:
+            return jsonify({"erro": "Você não participa deste pedido."}), 403
+
+        if request.method == 'POST':
+            if pedido['status'] in ('concluido', 'cancelado'):
+                return jsonify({"erro": "Este pedido não aceita novas propostas."}), 409
+            if pedido['valor_acordado'] is not None:
+                return jsonify({"erro": "Este pedido já tem um valor acordado."}), 409
+            valor = normalizar_valor((request.json or {}).get('valor'))
+            if valor is None:
+                return jsonify({"erro": "Informe um valor maior que zero."}), 400
+            c.execute('''
+                INSERT INTO propostas (id_pedido, id_usuario, valor)
+                VALUES (?, ?, ?)
+            ''', (id_pedido, id_usuario, valor))
+            conn.commit()
+            return jsonify({"mensagem": "Proposta enviada.", "valor": valor}), 201
+
+        c.execute('''
+            SELECT pr.id_proposta, pr.id_pedido, pr.id_usuario, u.nome,
+                   pr.valor, pr.status, pr.criado_em
+            FROM propostas pr
+            JOIN usuarios u ON u.id_usuario = pr.id_usuario
+            WHERE pr.id_pedido = ?
+            ORDER BY pr.id_proposta DESC
+        ''', (id_pedido,))
+        return jsonify([dict(row) for row in c.fetchall()]), 200
+
+@app.route('/api/pedidos/<int:id_pedido>/propostas/<int:id_proposta>/aceitar', methods=['POST'])
+def aceitar_proposta(id_pedido, id_proposta):
+    id_usuario = usuario_da_sessao()
+    if not id_usuario:
+        return acesso_negado()
+
+    with conectar_banco() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT p.id_solicitante, p.id_voluntario, p.status,
+                   pr.id_usuario, pr.valor
+            FROM propostas pr
+            JOIN pedidos p ON p.id_pedido = pr.id_pedido
+            WHERE pr.id_proposta = ? AND pr.id_pedido = ?
+        ''', (id_proposta, id_pedido))
+        proposta = c.fetchone()
+        if not proposta:
+            return jsonify({"erro": "Proposta não encontrada."}), 404
+        if proposta['id_solicitante'] != id_usuario:
+            return jsonify({"erro": "Somente quem solicitou a ajuda pode aceitar a proposta."}), 403
+        if proposta['status'] != 'pendente':
+            return jsonify({"erro": "Esta proposta não está mais disponível."}), 409
+
+        c.execute('UPDATE propostas SET status = \'aceita\' WHERE id_proposta = ?', (id_proposta,))
+        c.execute('''
+            UPDATE propostas
+            SET status = 'recusada'
+            WHERE id_pedido = ? AND id_proposta <> ? AND status = 'pendente'
+        ''', (id_pedido, id_proposta))
+        c.execute('UPDATE pedidos SET valor_acordado = ? WHERE id_pedido = ?', (proposta['valor'], id_pedido))
+        adicionar_notificacao(
+            proposta['id_usuario'],
+            'proposta_aceita',
+            f'A sua proposta de R$ {float(proposta["valor"]):.2f} foi aceita.',
+            id_pedido,
+            conn=conn,
+        )
+        conn.commit()
+        return jsonify({"mensagem": "Proposta aceita.", "valor_acordado": proposta['valor']}), 200
 
 @app.route('/api/pedidos/<int:id_pedido>/aceitar', methods=['POST'])
 def aceitar_pedido(id_pedido):
@@ -527,6 +642,8 @@ def listar_minhas_solicitacoes(id_usuario):
                 p.status,
                 p.id_voluntario,
                 v.nome AS nome_voluntario,
+                p.valor_proposto,
+                p.valor_acordado,
                 p.latitude,
                 p.longitude,
                 p.motivo_cancelamento,
@@ -592,7 +709,9 @@ def listar_conversas(id_usuario):
                 s.nome AS nome_solicitante,
                 s.telefone AS telefone_solicitante,
                 v.nome AS nome_voluntario,
-                v.telefone AS telefone_voluntario
+                v.telefone AS telefone_voluntario,
+                p.valor_proposto,
+                p.valor_acordado
             FROM pedidos p
             LEFT JOIN usuarios s ON s.id_usuario = p.id_solicitante
             LEFT JOIN usuarios v ON v.id_usuario = p.id_voluntario

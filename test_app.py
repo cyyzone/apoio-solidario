@@ -57,7 +57,7 @@ def test_cancelamento_salva_motivo_e_restricoes_basicas():
         sess['usuario_id'] = volunteer_user['id_usuario']
         sess['tipo_perfil'] = volunteer_user['tipo_perfil']
 
-    pedido = requester.post('/api/pedidos', json={'categoria': 'Teste cancelamento', 'descricao': 'Preciso de ajuda'})
+    pedido = requester.post('/api/pedidos', json={'categoria': 'Teste cancelamento', 'descricao': 'Preciso de ajuda', 'valor_proposto': 80})
     assert pedido.status_code == 201, pedido.get_data(as_text=True)
 
     pedidos_disponiveis = volunteer.get('/api/pedidos')
@@ -107,7 +107,7 @@ def test_notificacoes_sao_geradas_para_ambos_os_lados():
         sess['usuario_id'] = volunteer_user['id_usuario']
         sess['tipo_perfil'] = volunteer_user['tipo_perfil']
 
-    pedido = requester.post('/api/pedidos', json={'categoria': 'Teste notificacao', 'descricao': 'Ajuda'} )
+    pedido = requester.post('/api/pedidos', json={'categoria': 'Teste notificacao', 'descricao': 'Ajuda', 'valor_proposto': 80} )
     assert pedido.status_code == 201, pedido.get_data(as_text=True)
 
     conn = app.conectar_banco()

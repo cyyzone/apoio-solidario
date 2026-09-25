@@ -19,6 +19,7 @@ A ideia é simples: uma pessoa cria um pedido de ajuda, outro usuário pode acei
 ### 2. Criação de pedidos
 - Quem precisa de ajuda pode criar um pedido.
 - O pedido tem categoria, descrição e localização.
+- O pedido exige um valor inicial, que pode ser negociado.
 - A categoria ajuda a organizar os pedidos por tipo de necessidade.
 
 ### 3. Aceite de pedido por voluntário
@@ -43,6 +44,7 @@ Isso ajuda a mostrar o andamento da ajuda de forma clara.
 
 ### 6. Mensagens entre as partes
 - Depois que o pedido é aceito, o solicitante e o voluntário podem conversar dentro do mesmo pedido.
+- Os participantes podem enviar contrapropostas pelo chat; o solicitante aceita o valor final.
 - As mensagens ficam guardadas no banco de dados.
 
 ### 7. Notificações
