@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Apoio Solidário</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -17,6 +18,12 @@
         }
         .hidden-screen {
             display: none !important;
+        }
+        body.has-bottom-nav {
+            padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+        }
+        #bottom-nav {
+            padding-bottom: env(safe-area-inset-bottom);
         }
         #volunteer-map {
             height: 20rem;
@@ -285,7 +292,33 @@
 
     </main>
 
+    <nav id="bottom-nav" aria-label="Navegação principal" class="hidden-screen fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur">
+        <div class="mx-auto grid max-w-3xl grid-cols-5">
+            <button type="button" data-nav-item="inicio" onclick="navigateTo('screen-home')" class="bottom-nav-item flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-gray-500 transition-colors hover:text-orange-700" aria-label="Início" title="Início">
+                <i data-lucide="house" class="h-5 w-5" aria-hidden="true"></i>
+                <span class="text-xs font-semibold">Início</span>
+            </button>
+            <button type="button" data-nav-item="atividade" onclick="abrirAtividadeHome()" class="bottom-nav-item flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-gray-500 transition-colors hover:text-orange-700" aria-label="Ajuda" title="Ajuda">
+                <i data-lucide="hand-heart" class="h-5 w-5" aria-hidden="true"></i>
+                <span id="bottom-nav-activity-label" class="text-xs font-semibold">Ajuda</span>
+            </button>
+            <button type="button" data-nav-item="conversas" onclick="abrirConversasHome()" class="bottom-nav-item flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-gray-500 transition-colors hover:text-orange-700" aria-label="Conversas" title="Conversas">
+                <i data-lucide="messages-square" class="h-5 w-5" aria-hidden="true"></i>
+                <span class="text-xs font-semibold">Conversas</span>
+            </button>
+            <button type="button" data-nav-item="perfil" onclick="navigateTo('screen-perfil')" class="bottom-nav-item flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-gray-500 transition-colors hover:text-orange-700" aria-label="Perfil" title="Perfil">
+                <i data-lucide="user-round" class="h-5 w-5" aria-hidden="true"></i>
+                <span class="text-xs font-semibold">Perfil</span>
+            </button>
+            <button type="button" data-nav-item="notificacoes" onclick="alternarNotificacoes()" class="bottom-nav-item flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-gray-500 transition-colors hover:text-orange-700" aria-label="Notificações" title="Notificações">
+                <i data-lucide="bell" class="h-5 w-5" aria-hidden="true"></i>
+                <span class="text-xs font-semibold">Avisos</span>
+            </button>
+        </div>
+    </nav>
+
     <script>
+        window.lucide?.createIcons();
         const screens = ['screen-login', 'screen-home', 'screen-help', 'screen-volunteer', 'screen-cadastro', 'screen-perfil', 'screen-chat'];
         const btnBack = document.getElementById('btn-back');
         const btnLogout = document.getElementById('btn-logout');
@@ -295,7 +328,40 @@
         const notificacoesPanel = document.getElementById('notificacoes-panel');
         const listaNotificacoes = document.getElementById('lista-notificacoes');
         const usuarioLogado = document.getElementById('usuario-logado');
+        const bottomNav = document.getElementById('bottom-nav');
         let notificacoesIntervalo = null;
+
+        function atualizarNavegacaoInferior(telaAtual) {
+            const autenticado = Boolean(localStorage.getItem('usuario_id'));
+            const perfil = localStorage.getItem('usuario_perfil');
+            const atividadeLabel = document.getElementById('bottom-nav-activity-label');
+            const itemPorTela = {
+                'screen-home': 'inicio',
+                'screen-help': 'atividade',
+                'screen-volunteer': 'atividade',
+                'screen-perfil': 'perfil',
+                'screen-chat': 'conversas'
+            };
+
+            bottomNav.classList.toggle('hidden-screen', !autenticado);
+            document.body.classList.toggle('has-bottom-nav', autenticado);
+            atividadeLabel.textContent = perfil === 'voluntario' ? 'Pedidos' : 'Ajuda';
+            const atividade = bottomNav.querySelector('[data-nav-item="atividade"]');
+            atividade.setAttribute('aria-label', perfil === 'voluntario' ? 'Pedidos próximos' : 'Preciso de ajuda');
+            atividade.setAttribute('title', perfil === 'voluntario' ? 'Pedidos próximos' : 'Preciso de ajuda');
+
+            const itemAtivo = itemPorTela[telaAtual];
+            bottomNav.querySelectorAll('[data-nav-item]').forEach((item) => {
+                const ativo = autenticado && item.dataset.navItem === itemAtivo;
+                item.classList.toggle('text-orange-700', ativo);
+                item.classList.toggle('text-gray-500', !ativo);
+                if (ativo) {
+                    item.setAttribute('aria-current', 'page');
+                } else {
+                    item.removeAttribute('aria-current');
+                }
+            });
+        }
 
         function obterLocalizacaoAtualLocal() {
             const lat = localStorage.getItem('usuario_latitude');
@@ -446,11 +512,21 @@
 
         function abrirConversasHome() {
             navigateTo('screen-perfil');
+            const itemConversas = bottomNav.querySelector('[data-nav-item="conversas"]');
+            const itemPerfil = bottomNav.querySelector('[data-nav-item="perfil"]');
+            itemConversas?.classList.replace('text-gray-500', 'text-orange-700');
+            itemConversas?.setAttribute('aria-current', 'page');
+            itemPerfil?.classList.replace('text-orange-700', 'text-gray-500');
+            itemPerfil?.removeAttribute('aria-current');
             if (localStorage.getItem('usuario_perfil') === 'voluntario') {
                 carregarConversas();
             } else {
                 carregarMinhasSolicitacoes();
             }
+        }
+
+        function abrirAtividadeHome() {
+            navigateTo(localStorage.getItem('usuario_perfil') === 'voluntario' ? 'screen-volunteer' : 'screen-help');
         }
 
         function navigateTo(targetScreenId) {
@@ -482,6 +558,7 @@
 
             const targetElement = document.getElementById(targetScreenId);
             if(targetElement) targetElement.classList.remove('hidden-screen');
+            atualizarNavegacaoInferior(targetScreenId);
 
             if (targetScreenId === 'screen-home') {
                 btnBack.classList.add('hidden-screen');
@@ -1298,9 +1375,6 @@
                 ? `Você está ajudando e está a caminho. Voluntário: ${resultado.voluntario_nome}`
                 : 'Pedido aceito e atualizado no sistema.';
             card.appendChild(msg);
-            if (resultado.telefone_solicitante) {
-                card.insertAdjacentHTML('beforeend', criarLinkWhatsapp(resultado.telefone_solicitante, 'Conversar com solicitante pelo WhatsApp'));
-            }
         }
 
         function criarLinkWhatsapp(telefone, texto) {
