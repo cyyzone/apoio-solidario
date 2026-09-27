@@ -177,6 +177,11 @@
         <!-- TELA: PRECISO DE AJUDA -->
         <div id="screen-help" class="hidden-screen flex flex-col w-full">
             <h2 class="text-3xl sm:text-4xl font-semibold mb-8 text-center">Do que você precisa?</h2>
+            <div id="success-message" role="status" aria-live="polite"
+                class="hidden mb-6 p-6 bg-orange-100 border-4 border-orange-500 rounded-2xl text-center">
+                <h3 class="text-3xl font-bold text-orange-800 mb-2">Pedido Enviado! 🎉</h3>
+                <p class="text-2xl text-orange-900">Logo um voluntário entrará em contato.</p>
+            </div>
 
             <p class="text-2xl mb-4 font-medium text-gray-700">Toque em uma ou mais opções:</p>
 
@@ -225,12 +230,6 @@
                 Confirmar Pedido ✔️
             </button>
 
-            <!-- Mensagem de Sucesso -->
-            <div id="success-message"
-                class="hidden mt-8 p-6 bg-orange-100 border-4 border-orange-500 rounded-2xl text-center">
-                <h3 class="text-3xl font-bold text-orange-800 mb-2">Pedido Enviado! 🎉</h3>
-                <p class="text-2xl text-orange-900">Logo um voluntário entrará em contato.</p>
-            </div>
         </div>
 
         <!-- TELA: SOU VOLUNTÁRIO -->
@@ -809,6 +808,9 @@
                 const nomeVoluntario = pedido.nome_voluntario ? `
                     <p class="text-gray-700 font-semibold text-green-700">Voluntário: ${pedido.nome_voluntario}</p>
                 ` : '';
+                const contatoVoluntario = pedido.telefone_voluntario
+                    ? criarLinkWhatsapp(pedido.telefone_voluntario, 'Conversar com voluntário pelo WhatsApp')
+                    : '';
                 const motivoCancelamento = pedido.motivo_cancelamento ? `
                     <p class="text-gray-700"><strong>Motivo:</strong> ${escaparHtml(pedido.motivo_cancelamento)}</p>
                 ` : '';
@@ -851,6 +853,7 @@
                         ${detalheConcluido}
                         ${motivoCancelamento}
                         ${nomeVoluntario}
+                        ${contatoVoluntario}
                         ${rotaMaps}
                         ${botaoChat}
                         ${botoesStatus}
@@ -1065,6 +1068,7 @@
 
         async function carregarConversas() {
             const usuarioId = localStorage.getItem('usuario_id');
+            const ehVoluntario = localStorage.getItem('usuario_perfil') === 'voluntario';
             const lista = document.getElementById('lista-minhas-solicitacoes');
             if (!lista || !usuarioId) return;
 
@@ -1085,6 +1089,8 @@
                 cancelado: 'Pedido cancelado'
             };
             lista.innerHTML = conversas.map(conversa => {
+                const telefoneContato = ehVoluntario ? conversa.telefone_solicitante : conversa.telefone_voluntario;
+                const rotuloContato = ehVoluntario ? 'Falar com solicitante' : 'Falar com voluntário';
                 const valorTexto = conversa.valor_acordado
                     ? `Valor acordado: ${formatarMoeda(conversa.valor_acordado)}`
                     : `Valor inicial: ${formatarMoeda(conversa.valor_proposto)}`;
@@ -1095,8 +1101,8 @@
                     <p class="text-gray-700">${conversa.categoria}</p>
                     <p class="text-gray-700 font-semibold text-green-700">${valorTexto}</p>
                     <p class="text-gray-700">Solicitante: ${conversa.nome_solicitante || 'Usuário'}</p>
-                    ${criarLinkWhatsapp(conversa.telefone_solicitante, 'Falar com solicitante')}
-                    ${conversa.nome_voluntario ? `<p class="text-gray-700">Voluntário: ${conversa.nome_voluntario}</p>${criarLinkWhatsapp(conversa.telefone_voluntario, 'Falar com voluntário')}` : ''}
+                    ${conversa.nome_voluntario ? `<p class="text-gray-700">Voluntário: ${conversa.nome_voluntario}</p>` : ''}
+                    ${criarLinkWhatsapp(telefoneContato, rotuloContato)}
                     <p class="text-gray-700 font-semibold">Status: ${statusTexto[conversa.status] || conversa.status}</p>
                     <button onclick="abrirChat(${conversa.id_pedido})" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl">Abrir chat</button>
                     ${conversa.status === 'aceito' ? `<button onclick="atualizarStatusPedido(${conversa.id_pedido}, 'em_andamento')" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">Iniciar ajuda</button>` : ''}
@@ -1184,7 +1190,9 @@
                 })
             });
 
-            document.getElementById('success-message').classList.remove('hidden');
+            const mensagemSucesso = document.getElementById('success-message');
+            mensagemSucesso.classList.remove('hidden');
+            mensagemSucesso.scrollIntoView({ behavior: 'smooth', block: 'start' });
             setTimeout(() => { navigateTo('screen-home'); }, 4000);
         }
 

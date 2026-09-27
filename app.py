@@ -654,6 +654,7 @@ def listar_minhas_solicitacoes(id_usuario):
                 p.status,
                 p.id_voluntario,
                 v.nome AS nome_voluntario,
+                v.telefone AS telefone_voluntario,
                 p.valor_proposto,
                 p.valor_acordado,
                 p.latitude,
