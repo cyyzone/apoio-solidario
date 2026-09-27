@@ -33,26 +33,26 @@
 
 <body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
 
-    <header class="w-full max-w-3xl flex justify-between items-center mb-8 border-b-4 border-gray-200 pb-4">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-orange-900">Apoio Solidário</h1>
-        <div class="flex items-center gap-3">
-            <button id="btn-notificacoes" class="hidden-screen relative bg-orange-100 hover:bg-orange-200 text-orange-900 font-bold py-3 px-4 rounded-xl text-xl transition-colors shadow-sm focus:ring-4 focus:ring-orange-300">
+    <header class="w-full max-w-md flex justify-between items-center gap-2 mb-6 border-b-4 border-gray-200 pb-4">
+        <h1 class="text-xl sm:text-2xl font-extrabold text-orange-900">Apoio Solidário</h1>
+        <div class="flex shrink-0 items-center gap-1.5">
+            <button id="btn-notificacoes" class="hidden-screen relative bg-orange-100 hover:bg-orange-200 text-orange-900 font-bold py-2 px-3 rounded-lg text-lg transition-colors shadow-sm focus:ring-4 focus:ring-orange-300">
                 🔔
                 <span id="notificacao-count" class="absolute -top-2 -right-2 min-w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center px-1">0</span>
             </button>
-            <span id="usuario-logado" class="hidden-screen text-lg font-bold text-orange-900 bg-orange-100 px-3 py-2 rounded-xl"></span>
+            <span id="usuario-logado" class="hidden-screen whitespace-nowrap text-xs sm:text-sm font-bold text-orange-900 bg-orange-100 px-2 py-2 rounded-lg"></span>
             <button id="btn-back"
-                class="hidden-screen bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-3 px-6 rounded-xl text-xl transition-colors shadow-sm focus:ring-4 focus:ring-gray-400">
+                class="hidden-screen bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-2 px-3 rounded-lg text-sm transition-colors shadow-sm focus:ring-4 focus:ring-gray-400">
                 &larr; Voltar
             </button>
             <button id="btn-logout"
-                class="hidden-screen bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl text-xl transition-colors shadow-sm focus:ring-4 focus:ring-red-300">
+                class="hidden-screen bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors shadow-sm focus:ring-4 focus:ring-red-300">
                 Sair
             </button>
         </div>
     </header>
 
-    <div id="notificacoes-panel" class="hidden-screen w-full max-w-3xl mb-6 bg-white border-4 border-orange-200 rounded-3xl shadow-xl p-4 sm:p-5">
+    <div id="notificacoes-panel" class="hidden-screen w-full max-w-md mb-6 bg-white border-4 border-orange-200 rounded-3xl shadow-xl p-4 sm:p-5">
         <div class="flex items-center justify-between mb-3">
             <h3 class="text-2xl font-bold text-orange-900">Notificações</h3>
             <div class="flex items-center gap-3">
@@ -63,7 +63,7 @@
         <div id="lista-notificacoes" class="space-y-3"></div>
     </div>
 
-    <main class="w-full max-w-3xl flex-1 flex flex-col justify-center">
+    <main class="w-full max-w-md flex-1 flex flex-col justify-center">
 
         <!-- TELA DE LOGIN -->
         <div id="screen-login" class="flex flex-col w-full gap-4 mt-10">
@@ -129,31 +129,19 @@
         </div>
 
         <!-- TELA INICIAL -->
-        <div id="screen-home" class="hidden-screen flex flex-col gap-6 sm:gap-10 w-full">
-            <h2 class="text-3xl sm:text-4xl font-semibold text-center mb-4">Como podemos ajudar hoje?</h2>
-
-            <button id="btn-perfil-home" onclick="navigateTo('screen-perfil')"
-                class="w-full bg-white border-4 border-orange-200 hover:border-orange-400 text-orange-900 font-bold py-6 px-8 rounded-2xl shadow-md text-2xl">
-                Meu Perfil 👤
-            </button>
+        <div id="screen-home" class="hidden-screen flex flex-col gap-4 sm:gap-6 w-full">
+            <h2 class="text-2xl sm:text-3xl font-semibold text-center mb-2">Como podemos ajudar hoje?</h2>
 
             <button id="btn-help-home" onclick="navigateTo('screen-help')"
-                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-12 px-8 rounded-3xl shadow-xl transform transition hover:scale-105 focus:ring-8 focus:ring-orange-400 flex flex-col items-center justify-center gap-4">
-                <span class="text-5xl sm:text-6xl">🙋‍♂️</span>
-                <span class="text-4xl sm:text-5xl">Preciso de Ajuda</span>
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-8 px-5 rounded-2xl shadow-xl transform transition hover:scale-105 focus:ring-4 focus:ring-orange-400 flex flex-col items-center justify-center gap-3">
+                <span class="text-4xl">🙋‍♂️</span>
+                <span class="text-2xl sm:text-3xl text-center">Preciso de Ajuda</span>
             </button>
 
             <button id="btn-volunteer-home" onclick="navigateTo('screen-volunteer')"
-                class="w-full bg-orange-800 hover:bg-orange-900 text-white font-bold py-12 px-8 rounded-3xl shadow-xl transform transition hover:scale-105 focus:ring-8 focus:ring-orange-500 flex flex-col items-center justify-center gap-4">
-                <span class="text-5xl sm:text-6xl">🤝</span>
-                <span class="text-4xl sm:text-5xl">Sou Voluntário</span>
-            </button>
-
-            <button id="btn-chat-home" onclick="abrirConversasHome()"
-                class="hidden-screen w-full bg-green-600 hover:bg-green-700 text-white font-bold py-8 px-8 rounded-3xl shadow-xl text-3xl sm:text-4xl flex flex-col items-center justify-center gap-2">
-                <span class="text-5xl">💬</span>
-                <span>Conversas</span>
-                <span class="text-xl font-semibold">Fale com a pessoa do seu pedido</span>
+                class="w-full bg-orange-800 hover:bg-orange-900 text-white font-bold py-8 px-5 rounded-2xl shadow-xl transform transition hover:scale-105 focus:ring-4 focus:ring-orange-500 flex flex-col items-center justify-center gap-3">
+                <span class="text-4xl">🤝</span>
+                <span class="text-2xl sm:text-3xl text-center">Sou Voluntário</span>
             </button>
         </div>
 
@@ -293,7 +281,7 @@
     </main>
 
     <nav id="bottom-nav" aria-label="Navegação principal" class="hidden-screen fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur">
-        <div class="mx-auto grid max-w-3xl grid-cols-5">
+        <div class="mx-auto grid max-w-md grid-cols-5">
             <button type="button" data-nav-item="inicio" onclick="navigateTo('screen-home')" class="bottom-nav-item flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-gray-500 transition-colors hover:text-orange-700" aria-label="Início" title="Início">
                 <i data-lucide="house" class="h-5 w-5" aria-hidden="true"></i>
                 <span class="text-xs font-semibold">Início</span>
@@ -492,11 +480,8 @@
             const perfil = localStorage.getItem('usuario_perfil');
             const btnAjuda = document.getElementById('btn-help-home');
             const btnVoluntario = document.getElementById('btn-volunteer-home');
-            const btnChat = document.getElementById('btn-chat-home');
 
-            if (!btnAjuda || !btnVoluntario || !btnChat) return;
-
-            btnChat.classList.toggle('hidden-screen', !localStorage.getItem('usuario_id'));
+            if (!btnAjuda || !btnVoluntario) return;
 
             if (perfil === 'necessitado') {
                 btnAjuda.classList.remove('hidden-screen');
