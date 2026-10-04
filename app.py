@@ -585,27 +585,18 @@ def geocodificar_localizacao():
     cidade = str(dados.get('cidade') or '').strip()
     estado = str(dados.get('estado') or '').strip()
     if len(endereco) < 3 or len(endereco) > 200:
-        return jsonify({"erro": "Informe um endereço ou CEP válido."}), 400
+        return jsonify({"erro": "Informe um endereço com nome de rua válido."}), 400
+    if re.fullmatch(r'(?:cep\s*[:\-]?\s*)?\d{5}[- ]?\d{3}', endereco, re.IGNORECASE):
+        return jsonify({"erro": "A busca aceita endereço de rua, não CEP. Informe rua, número ou bairro."}), 400
 
     consulta = ', '.join(parte for parte in (endereco, cidade, estado, 'Brasil') if parte)
     parametros = {
         'format': 'jsonv2',
         'limit': 1,
         'countrycodes': 'br',
+        'q': consulta,
     }
-    if re.fullmatch(r'\d{5}[- ]?\d{3}', endereco):
-        cep = re.sub(r'\D', '', endereco)
-        parametros.update({'postalcode': f'{cep[:5]}-{cep[5:]}', 'country': 'Brasil'})
-        if cidade:
-            parametros['city'] = cidade
-        if estado:
-            parametros['state'] = estado
-        consulta_cache = ', '.join(parte for parte in (cep, cidade, estado) if parte)
-    else:
-        parametros['q'] = consulta
-        consulta_cache = consulta
-
-    chave_cache = hashlib.sha256(' '.join(consulta_cache.casefold().split()).encode('utf-8')).hexdigest()
+    chave_cache = hashlib.sha256(' '.join(consulta.casefold().split()).encode('utf-8')).hexdigest()
     url = 'https://nominatim.openstreetmap.org/search?' + urlencode(parametros)
     requisicao = Request(url, headers={
         'User-Agent': 'ApoioSolidario/1.0 (https://github.com/cyyzone/apoio-solidario)',
@@ -673,7 +664,7 @@ def geocodificar_localizacao():
         return jsonify({"erro": "O serviço de busca de endereços está indisponível. Tente novamente."}), 502
 
     if not resultados:
-        return jsonify({"erro": "Endereço não encontrado. Confira o CEP ou informe também cidade e UF."}), 404
+        return jsonify({"erro": "Endereço não encontrado. Confira o nome da rua e informe cidade e UF."}), 404
 
     return jsonify({"latitude": latitude, "longitude": longitude}), 200
 
