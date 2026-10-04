@@ -1,7 +1,11 @@
 import os
 import json
+import hashlib
+import math
 import threading
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -27,6 +31,10 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'apoio-solidario-dev-key')
 NOMINATIM_LOCK = threading.Lock()
 NOMINATIM_ULTIMA_BUSCA = 0.0
+NOMINATIM_COOLDOWN_ATE = 0.0
+NOMINATIM_CACHE = {}
+NOMINATIM_INTERVALO_SEGUNDOS = 1.5
+NOMINATIM_CACHE_TTL_SEGUNDOS = 86400
 
 def usuario_da_sessao():
     return session.get('usuario_id')
@@ -579,6 +587,7 @@ def geocodificar_localizacao():
         return jsonify({"erro": "Informe um endereço ou CEP válido."}), 400
 
     consulta = ', '.join(parte for parte in (endereco, cidade, estado, 'Brasil') if parte)
+    chave_cache = hashlib.sha256(' '.join(consulta.casefold().split()).encode('utf-8')).hexdigest()
     url = 'https://nominatim.openstreetmap.org/search?' + urlencode({
         'format': 'jsonv2',
         'limit': 1,
@@ -590,19 +599,61 @@ def geocodificar_localizacao():
         'Accept': 'application/json',
     })
 
-    global NOMINATIM_ULTIMA_BUSCA
+    global NOMINATIM_ULTIMA_BUSCA, NOMINATIM_COOLDOWN_ATE
     try:
         with NOMINATIM_LOCK:
-            espera = 1.0 - (time.monotonic() - NOMINATIM_ULTIMA_BUSCA)
+            agora = time.monotonic()
+            localizacao_em_cache = NOMINATIM_CACHE.get(chave_cache)
+            if localizacao_em_cache and localizacao_em_cache[0] > agora:
+                return jsonify({"latitude": localizacao_em_cache[1], "longitude": localizacao_em_cache[2]}), 200
+            if localizacao_em_cache:
+                NOMINATIM_CACHE.pop(chave_cache, None)
+
+            espera_retentativa = NOMINATIM_COOLDOWN_ATE - agora
+            if espera_retentativa > 0:
+                segundos = math.ceil(espera_retentativa)
+                return jsonify({
+                    "erro": f"A busca está temporariamente limitada. Tente novamente em {segundos} segundos.",
+                    "retry_after_seconds": segundos,
+                }), 429
+
+            espera = NOMINATIM_INTERVALO_SEGUNDOS - (agora - NOMINATIM_ULTIMA_BUSCA)
             if espera > 0:
                 time.sleep(espera)
             NOMINATIM_ULTIMA_BUSCA = time.monotonic()
             with urlopen(requisicao, timeout=10) as resposta:
                 resultados = json.loads(resposta.read().decode('utf-8'))
+            if resultados:
+                try:
+                    latitude = float(resultados[0]['lat'])
+                    longitude = float(resultados[0]['lon'])
+                except (KeyError, TypeError, ValueError):
+                    return jsonify({"erro": "Não foi possível obter as coordenadas desse endereço."}), 502
+                NOMINATIM_CACHE[chave_cache] = (
+                    time.monotonic() + NOMINATIM_CACHE_TTL_SEGUNDOS,
+                    latitude,
+                    longitude,
+                )
     except HTTPError as erro:
         app.logger.warning('Nominatim respondeu com HTTP %s.', erro.code)
         if erro.code == 429:
-            return jsonify({"erro": "Muitas buscas foram feitas em sequência. Aguarde alguns segundos e tente novamente."}), 429
+            valor_retentativa = erro.headers.get('Retry-After') if erro.headers else None
+            try:
+                segundos = max(1, min(3600, int(float(valor_retentativa))))
+            except (TypeError, ValueError):
+                try:
+                    data_retentativa = parsedate_to_datetime(valor_retentativa)
+                    if data_retentativa.tzinfo is None:
+                        data_retentativa = data_retentativa.replace(tzinfo=timezone.utc)
+                    segundos = max(1, min(3600, math.ceil((data_retentativa - datetime.now(timezone.utc)).total_seconds())))
+                except (TypeError, ValueError, OverflowError):
+                    segundos = 60
+            with NOMINATIM_LOCK:
+                NOMINATIM_COOLDOWN_ATE = time.monotonic() + segundos
+            return jsonify({
+                "erro": f"A busca está temporariamente limitada. Tente novamente em {segundos} segundos.",
+                "retry_after_seconds": segundos,
+            }), 429
         return jsonify({"erro": "O serviço de busca de endereços está indisponível. Tente novamente."}), 502
     except (URLError, TimeoutError, json.JSONDecodeError) as erro:
         app.logger.warning('Falha na busca de endereço pelo Nominatim (%s).', type(erro).__name__)
@@ -610,12 +661,6 @@ def geocodificar_localizacao():
 
     if not resultados:
         return jsonify({"erro": "Endereço não encontrado. Confira o CEP ou informe também cidade e UF."}), 404
-
-    try:
-        latitude = float(resultados[0]['lat'])
-        longitude = float(resultados[0]['lon'])
-    except (KeyError, TypeError, ValueError):
-        return jsonify({"erro": "Não foi possível obter as coordenadas desse endereço."}), 502
 
     return jsonify({"latitude": latitude, "longitude": longitude}), 200
 
