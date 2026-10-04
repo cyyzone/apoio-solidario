@@ -2,6 +2,7 @@ import os
 import json
 import hashlib
 import math
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -587,13 +588,25 @@ def geocodificar_localizacao():
         return jsonify({"erro": "Informe um endereço ou CEP válido."}), 400
 
     consulta = ', '.join(parte for parte in (endereco, cidade, estado, 'Brasil') if parte)
-    chave_cache = hashlib.sha256(' '.join(consulta.casefold().split()).encode('utf-8')).hexdigest()
-    url = 'https://nominatim.openstreetmap.org/search?' + urlencode({
+    parametros = {
         'format': 'jsonv2',
         'limit': 1,
         'countrycodes': 'br',
-        'q': consulta,
-    })
+    }
+    if re.fullmatch(r'\d{5}[- ]?\d{3}', endereco):
+        cep = re.sub(r'\D', '', endereco)
+        parametros.update({'postalcode': f'{cep[:5]}-{cep[5:]}', 'country': 'Brasil'})
+        if cidade:
+            parametros['city'] = cidade
+        if estado:
+            parametros['state'] = estado
+        consulta_cache = ', '.join(parte for parte in (cep, cidade, estado) if parte)
+    else:
+        parametros['q'] = consulta
+        consulta_cache = consulta
+
+    chave_cache = hashlib.sha256(' '.join(consulta_cache.casefold().split()).encode('utf-8')).hexdigest()
+    url = 'https://nominatim.openstreetmap.org/search?' + urlencode(parametros)
     requisicao = Request(url, headers={
         'User-Agent': 'ApoioSolidario/1.0 (https://github.com/cyyzone/apoio-solidario)',
         'Accept': 'application/json',
