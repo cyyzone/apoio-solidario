@@ -2,7 +2,7 @@ import os
 import json
 import threading
 import time
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from flask import Flask, render_template, request, jsonify, session
@@ -599,7 +599,13 @@ def geocodificar_localizacao():
             NOMINATIM_ULTIMA_BUSCA = time.monotonic()
             with urlopen(requisicao, timeout=10) as resposta:
                 resultados = json.loads(resposta.read().decode('utf-8'))
-    except (URLError, TimeoutError, json.JSONDecodeError):
+    except HTTPError as erro:
+        app.logger.warning('Nominatim respondeu com HTTP %s.', erro.code)
+        if erro.code == 429:
+            return jsonify({"erro": "Muitas buscas foram feitas em sequência. Aguarde alguns segundos e tente novamente."}), 429
+        return jsonify({"erro": "O serviço de busca de endereços está indisponível. Tente novamente."}), 502
+    except (URLError, TimeoutError, json.JSONDecodeError) as erro:
+        app.logger.warning('Falha na busca de endereço pelo Nominatim (%s).', type(erro).__name__)
         return jsonify({"erro": "O serviço de busca de endereços está indisponível. Tente novamente."}), 502
 
     if not resultados:
