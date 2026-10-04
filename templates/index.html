@@ -256,22 +256,41 @@
 
             <form id="form-localizacao-manual" class="mb-6 rounded-2xl border-2 border-gray-200 bg-white p-4">
                 <h3 class="text-lg font-bold text-gray-800 mb-1">Informar localização manualmente</h3>
-                <p class="text-sm text-gray-600 mb-3">Use coordenadas em graus decimais.</p>
-                <div class="grid gap-3 sm:grid-cols-2">
+                <p class="text-sm text-gray-600 mb-3">Digite o endereço ou CEP. Cidade e UF ajudam a encontrar o local correto.</p>
+                <label for="voluntario-endereco" class="block text-sm font-semibold text-gray-700 mb-1">Endereço ou CEP</label>
+                <input id="voluntario-endereco" type="text" maxlength="200" autocomplete="street-address"
+                    class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Rua, número, bairro ou CEP">
+                <div class="mt-3 grid gap-3 sm:grid-cols-2">
                     <div>
-                        <label for="voluntario-latitude" class="block text-sm font-semibold text-gray-700 mb-1">Latitude</label>
-                        <input id="voluntario-latitude" type="number" min="-90" max="90" step="any" required
-                            class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Ex.: -15.7939">
+                        <label for="voluntario-cidade" class="block text-sm font-semibold text-gray-700 mb-1">Cidade (opcional)</label>
+                        <input id="voluntario-cidade" type="text" maxlength="100" autocomplete="address-level2"
+                            class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Ex.: Brasília">
                     </div>
                     <div>
-                        <label for="voluntario-longitude" class="block text-sm font-semibold text-gray-700 mb-1">Longitude</label>
-                        <input id="voluntario-longitude" type="number" min="-180" max="180" step="any" required
-                            class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Ex.: -47.8828">
+                        <label for="voluntario-estado" class="block text-sm font-semibold text-gray-700 mb-1">Estado (opcional)</label>
+                        <input id="voluntario-estado" type="text" maxlength="30" autocomplete="address-level1"
+                            class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Ex.: DF">
                     </div>
                 </div>
+                <details class="mt-3">
+                    <summary class="cursor-pointer text-sm font-semibold text-orange-800">Prefiro informar latitude e longitude</summary>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label for="voluntario-latitude" class="block text-sm font-semibold text-gray-700 mb-1">Latitude</label>
+                            <input id="voluntario-latitude" type="number" min="-90" max="90" step="any"
+                                class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Ex.: -15.7939">
+                        </div>
+                        <div>
+                            <label for="voluntario-longitude" class="block text-sm font-semibold text-gray-700 mb-1">Longitude</label>
+                            <input id="voluntario-longitude" type="number" min="-180" max="180" step="any"
+                                class="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-orange-600 focus:outline-none" placeholder="Ex.: -47.8828">
+                        </div>
+                    </div>
+                </details>
                 <button type="submit" class="mt-3 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded-xl">
-                    Usar esta localização
+                    Buscar localização e ver pedidos
                 </button>
+                <p class="mt-2 text-xs text-gray-500">Busca de endereços por OpenStreetMap / Nominatim.</p>
                 <p id="status-localizacao-voluntario" class="mt-2 text-sm text-gray-600" role="status" aria-live="polite"></p>
             </form>
 
@@ -661,30 +680,66 @@
 
         async function salvarLocalizacaoManual(event) {
             event.preventDefault();
-            const latitude = Number(document.getElementById('voluntario-latitude').value);
-            const longitude = Number(document.getElementById('voluntario-longitude').value);
+            const endereco = document.getElementById('voluntario-endereco').value.trim();
+            const cidade = document.getElementById('voluntario-cidade').value.trim();
+            const estado = document.getElementById('voluntario-estado').value.trim();
+            const latitudeTexto = document.getElementById('voluntario-latitude').value.trim();
+            const longitudeTexto = document.getElementById('voluntario-longitude').value.trim();
             const status = document.getElementById('status-localizacao-voluntario');
+            let latitude;
+            let longitude;
+
+            status.classList.remove('text-red-700');
+            if (endereco) {
+                status.textContent = 'Buscando endereço...';
+                try {
+                    const response = await fetch('/api/localizacoes/geocodificar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ endereco, cidade, estado })
+                    });
+                    const resultado = await response.json();
+                    if (!response.ok) {
+                        throw new Error(resultado.erro || 'Não foi possível localizar esse endereço.');
+                    }
+                    latitude = Number(resultado.latitude);
+                    longitude = Number(resultado.longitude);
+                } catch (error) {
+                    status.textContent = error.message || 'Não foi possível buscar esse endereço.';
+                    status.classList.add('text-red-700');
+                    return;
+                }
+            } else if (latitudeTexto || longitudeTexto) {
+                latitude = Number(latitudeTexto);
+                longitude = Number(longitudeTexto);
+            } else {
+                status.textContent = 'Informe um endereço ou CEP, ou preencha as duas coordenadas.';
+                status.classList.add('text-red-700');
+                return;
+            }
 
             if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
-                !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-                status.textContent = 'Informe uma latitude entre -90 e 90 e uma longitude entre -180 e 180.';
+                !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+                (!endereco && (!latitudeTexto || !longitudeTexto))) {
+                status.textContent = 'Confira o endereço ou informe latitude entre -90 e 90 e longitude entre -180 e 180.';
                 status.classList.add('text-red-700');
                 return;
             }
 
             salvarLocalizacaoUsuario(latitude, longitude);
-            status.classList.remove('text-red-700');
             status.textContent = 'Localização salva. Atualizando pedidos próximos...';
+            let sincronizacaoConcluida = true;
             try {
                 const response = await atualizarLocalizacaoNoServidor();
                 if (response && !response.ok) {
                     throw new Error('Falha ao sincronizar localização.');
                 }
             } catch (error) {
+                sincronizacaoConcluida = false;
                 status.textContent = 'Localização salva neste dispositivo. Não foi possível sincronizar com o servidor.';
             }
             await carregarPedidos();
-            if (!status.classList.contains('text-red-700') && status.textContent.startsWith('Localização salva.')) {
+            if (sincronizacaoConcluida) {
                 status.textContent = 'Localização manual atualizada.';
             }
         }

@@ -1,4 +1,10 @@
 import os
+import json
+import threading
+import time
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from flask import Flask, render_template, request, jsonify, session
 try:
     from dotenv import load_dotenv
@@ -19,6 +25,8 @@ INTEGRITY_ERRORS = (psycopg.errors.UniqueViolation,) if psycopg is not None else
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'apoio-solidario-dev-key')
+NOMINATIM_LOCK = threading.Lock()
+NOMINATIM_ULTIMA_BUSCA = 0.0
 
 def usuario_da_sessao():
     return session.get('usuario_id')
@@ -555,6 +563,55 @@ def atualizar_status_pedido(id_pedido):
         conn.commit()
 
     return jsonify({"mensagem": "Status atualizado.", "status": novo_status, "motivo_cancelamento": motivo}), 200
+
+@app.route('/api/localizacoes/geocodificar', methods=['POST'])
+def geocodificar_localizacao():
+    if not usuario_da_sessao():
+        return acesso_negado()
+    if session.get('tipo_perfil') != 'voluntario':
+        return jsonify({"erro": "Somente voluntários podem buscar uma localização."}), 403
+
+    dados = request.get_json(silent=True) or {}
+    endereco = str(dados.get('endereco') or '').strip()
+    cidade = str(dados.get('cidade') or '').strip()
+    estado = str(dados.get('estado') or '').strip()
+    if len(endereco) < 3 or len(endereco) > 200:
+        return jsonify({"erro": "Informe um endereço ou CEP válido."}), 400
+
+    consulta = ', '.join(parte for parte in (endereco, cidade, estado, 'Brasil') if parte)
+    url = 'https://nominatim.openstreetmap.org/search?' + urlencode({
+        'format': 'jsonv2',
+        'limit': 1,
+        'countrycodes': 'br',
+        'q': consulta,
+    })
+    requisicao = Request(url, headers={
+        'User-Agent': 'ApoioSolidario/1.0 (https://github.com/cyyzone/apoio-solidario)',
+        'Accept': 'application/json',
+    })
+
+    global NOMINATIM_ULTIMA_BUSCA
+    try:
+        with NOMINATIM_LOCK:
+            espera = 1.0 - (time.monotonic() - NOMINATIM_ULTIMA_BUSCA)
+            if espera > 0:
+                time.sleep(espera)
+            NOMINATIM_ULTIMA_BUSCA = time.monotonic()
+            with urlopen(requisicao, timeout=10) as resposta:
+                resultados = json.loads(resposta.read().decode('utf-8'))
+    except (URLError, TimeoutError, json.JSONDecodeError):
+        return jsonify({"erro": "O serviço de busca de endereços está indisponível. Tente novamente."}), 502
+
+    if not resultados:
+        return jsonify({"erro": "Endereço não encontrado. Confira o CEP ou informe também cidade e UF."}), 404
+
+    try:
+        latitude = float(resultados[0]['lat'])
+        longitude = float(resultados[0]['lon'])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"erro": "Não foi possível obter as coordenadas desse endereço."}), 502
+
+    return jsonify({"latitude": latitude, "longitude": longitude}), 200
 
 @app.route('/api/usuarios/<int:id_usuario>/localizacao', methods=['PUT'])
 def atualizar_localizacao_usuario(id_usuario):
